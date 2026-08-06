@@ -1,0 +1,17 @@
+{
+  "name": "Fantasy des 5 Grands",
+  "short_name": "Fantasy 5G",
+  "description": "Suivi de saison fantasy football — 5 grands championnats",
+  "start_url": "/fantasy5g/",
+  "scope": "/fantasy5g/",
+  "display": "standalone",
+  "background_color": "#1a3a2a",
+  "theme_color": "#1a3a2a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/fantasy5g/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/fantasy5g/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["sports", "games"],
+  "lang": "fr"
+}
