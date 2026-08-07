@@ -1113,7 +1113,8 @@ async function syncFromAPI() {
 
   // Sources pour tous les championnats supportés
   const FD_LEAGUES  = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1' };
-  const OFB_LEAGUES = { 'Ligue 2':'france/2026-27/2-ligue2.json', 'League Two':'england/2026-27/4-league2.json', 'Segunda División':'espana/2026-27/2-segunda.json' };
+  const OFB_LEAGUES = { 'Ligue 2':'fr.2.json', 'League Two':'en.4.json', 'Segunda División':'es.2.json' };
+  const OFB_SEASONS = ['2025-26', '2024-25'];
   const FD_EXTRA = { 'Championship': 'ELC' };
 
   const standingsCache = {}; // { leagueName: [ {name, points, position} ] }
@@ -1161,16 +1162,20 @@ async function syncFromAPI() {
         }
       } else if (OFB_LEAGUES[league]) {
         // openfootball/football.json — open source, sans clé, complet
-        const ofbUrl = 'https://raw.githubusercontent.com/openfootball/football.json/master/' + OFB_LEAGUES[league];
-        try {
-          const res = await fetch(ofbUrl);
-          if (res.ok) {
-            const json = await res.json();
-            // openfootball donne des fixtures, on calcule le classement
+        let ofbDone = false;
+        for (const s of OFB_SEASONS) {
+          const ofbUrl = 'https://raw.githubusercontent.com/openfootball/football.json/master/' + s + '/' + OFB_LEAGUES[league];
+          try {
+            const res = await fetch(ofbUrl);
+            if (!res.ok) continue;
+            const text = await res.text();
+            if (!text || text.trim() === '') continue;
+            const json = JSON.parse(text);
             const table = computeStandingsFromFixtures(json.matches || []);
-            if (table.length) standingsCache[league] = table;
-          }
-        } catch(e) { errors++; }
+            if (table.length) { standingsCache[league] = table; ofbDone = true; break; }
+          } catch(e) { continue; }
+        }
+        if (!ofbDone) errors++;
       }
       // Championnat non reconnu — on ignore silencieusement
     } catch(e) {
@@ -1724,10 +1729,10 @@ const LEAGUE_INFO = {
   78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, fdCode: 'BL1', src: 'fd' },
   61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, fdCode: 'FL1', src: 'fd' },
   // Divisions inférieures
-  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, fdCode: 'ELC',                                          src: 'fd'   },
-  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3,              ofbPath: 'france/2026-27/2-ligue2.json',             src: 'ofb'  },
-  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7,              ofbPath: 'england/2026-27/4-league2.json',          src: 'ofb'  },
-  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6,              ofbPath: 'espana/2026-27/2-segunda.json',            src: 'ofb'  }
+  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, fdCode: 'ELC',  src: 'fd' },
+  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, ofbFile: 'fr.2.json', src: 'ofb' },
+  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, ofbFile: 'en.4.json', src: 'ofb' },
+  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, ofbFile: 'es.2.json', src: 'ofb' }
 };
 // Clé football-data.org (gratuite, sans CORS, 10req/min)
 const FD_KEY = 'fbfc6d2f367e4a8f9cdbd723e480485a';
@@ -1815,13 +1820,44 @@ async function loadLeague(id, forceRefresh = false) {
     let normalized = [];
 
     if (info.src === 'ofb') {
-      // openfootball/football.json — open source, sans clé, classement complet
-      const ofbUrl = `https://raw.githubusercontent.com/openfootball/football.json/master/${info.ofbPath}`;
-      const res = await fetch(ofbUrl);
-      if (!res.ok) throw new Error('Erreur HTTP ' + res.status);
-      const json = await res.json();
-      const standings = computeStandingsFromFixtures(json.matches || []);
-      if (!standings.length) throw new Error('Données indisponibles — saison non encore commencée');
+      // Tente d'abord 2026-27, sinon affiche un message d'attente
+      const seasons = ['2026-27', '2025-26'];
+      let ofbJson = null;
+      let foundSeason = null;
+      for (const s of seasons) {
+        const ofbUrl = `https://raw.githubusercontent.com/openfootball/football.json/master/${s}/${info.ofbFile}`;
+        try {
+          const res = await fetch(ofbUrl);
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (!text || text.trim() === '') continue;
+          ofbJson = JSON.parse(text);
+          if (ofbJson?.matches?.length) { foundSeason = s; break; }
+        } catch(e) { continue; }
+      }
+      if (!ofbJson || !foundSeason) {
+        // Données pas encore disponibles pour 2026-27
+        document.getElementById('champ-table-wrap').innerHTML =
+          '<div class="champ-error" style="color:var(--ink);">' +
+          '<i class="ti ti-clock" style="font-size:32px;color:var(--gold);display:block;margin-bottom:.75rem;opacity:1;"></i>' +
+          '<strong>Saison 2026–27 bientôt disponible</strong><br>' +
+          '<span style="font-size:12px;color:var(--ink3);margin-top:8px;display:block;line-height:1.7;">' +
+          'Les données de ' + info.name + ' pour la saison 2026–27<br>seront disponibles dès que la base openfootball sera mise à jour.<br>' +
+          '<a href="https://github.com/openfootball/football.json" target="_blank" style="color:var(--pitch);">github.com/openfootball</a>' +
+          '</span>' +
+          '<button class="champ-refresh-btn" onclick="loadLeague(' + id + ', true)" style="margin:1rem auto 0;">' +
+          '<i class="ti ti-refresh"></i> Réessayer</button></div>';
+        document.getElementById('champ-loading').style.display = 'none';
+        if (refreshIcon) refreshIcon.className = 'ti ti-refresh';
+        return;
+      }
+      if (foundSeason !== '2026-27') {
+        // Affiche un bandeau d'avertissement si on utilise une saison passée
+        document.getElementById('champ-last-update').innerHTML =
+          '<span style="color:var(--amber);"><i class="ti ti-alert-triangle"></i> Données 2026–27 indisponibles — affichage de la saison ' + foundSeason + '</span>';
+      }
+      const standings = computeStandingsFromFixtures(ofbJson.matches || []);
+      if (!standings.length) throw new Error('Saison non encore commencée');
       normalized = standings.map((t, i) => ({
         rank: i + 1,
         team: { name: t.name, logo: '' },
@@ -1985,9 +2021,9 @@ const FIXTURE_SOURCES = {
   'Bundesliga':     { src: 'fd',   fdCode: 'BL1', color: '#d00027' },
   'Ligue 1':        { src: 'fd',   fdCode: 'FL1', color: '#e21024' },
   'Championship':    { src: 'fd',  fdCode: 'ELC',                                         color: '#5a2d82' },
-  'Ligue 2':         { src: 'ofb', ofbPath: 'france/2026-27/2-ligue2.json',                color: '#c8922a' },
-  'League Two':      { src: 'ofb', ofbPath: 'england/2026-27/4-league2.json',              color: '#1a6b3c' },
-  'Segunda División':{ src: 'ofb', ofbPath: 'espana/2026-27/2-segunda.json',               color: '#e86c00' }
+  'Ligue 2':         { src: 'ofb', ofbFile: 'fr.2.json', color: '#c8922a' },
+  'League Two':      { src: 'ofb', ofbFile: 'en.4.json', color: '#1a6b3c' },
+  'Segunda División':{ src: 'ofb', ofbFile: 'es.2.json', color: '#e86c00' }
 };
 
 let duelsCache = {}; // { league: { matches, timestamp } }
@@ -2041,11 +2077,21 @@ async function fetchFixturesFD(fdCode) {
   }));
 }
 
-async function fetchFixturesOFB(ofbPath) {
-  const url = `https://raw.githubusercontent.com/openfootball/football.json/master/${ofbPath}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
+async function fetchFixturesOFB(ofbFile) {
+  const seasons = ['2025-26', '2024-25'];
+  let json = null;
+  for (const s of seasons) {
+    const url = `https://raw.githubusercontent.com/openfootball/football.json/master/${s}/${ofbFile}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim() === '') continue;
+      json = JSON.parse(text);
+      if (json?.matches?.length) break;
+    } catch(e) { continue; }
+  }
+  if (!json) throw new Error('Données indisponibles');
   let idx = 0;
   return (json.matches || []).map(m => ({
     id: idx++,
@@ -2099,7 +2145,7 @@ async function loadDuels(forceRefresh = false) {
       if (src.src === 'fd') {
         matches = await fetchFixturesFD(src.fdCode);
       } else {
-        matches = await fetchFixturesOFB(src.ofbPath);
+        matches = await fetchFixturesOFB(src.ofbFile);
       }
       duelsCache[league] = { matches, timestamp: Date.now() };
       loaded++;
