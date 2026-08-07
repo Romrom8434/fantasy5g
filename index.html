@@ -1122,7 +1122,7 @@ async function syncFromAPI() {
         const seasons = ['2026-2027', '2025-2026'];
         let syncTable = null;
         for (const season of seasons) {
-          const tsdbUrl = 'https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=' + TSDB_LEAGUES[league] + '&s=' + season;
+          const tsdbUrl = 'https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l=' + TSDB_LEAGUES[league] + '&s=' + season;
           const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(tsdbUrl);
           try {
             const res = await fetch(proxyUrl);
@@ -1788,7 +1788,7 @@ async function loadLeague(id, forceRefresh = false) {
       const seasons = ['2026-2027', '2025-2026'];
       let table = null;
       for (const season of seasons) {
-        const tsdbUrl = `https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=${info.tsdbId}&s=${season}`;
+        const tsdbUrl = `https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l=${info.tsdbId}&s=${season}`;
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(tsdbUrl)}`;
         try {
           const res = await fetch(proxyUrl);
@@ -2023,7 +2023,7 @@ async function fetchFixturesTSDB(tsdbId) {
   const seasons = ['2026-2027', '2025-2026'];
   let json = null;
   for (const season of seasons) {
-    const url = `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${tsdbId}&s=${season}`;
+    const url = `https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=${tsdbId}&s=${season}`;
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
     try {
       const res = await fetch(proxyUrl);
