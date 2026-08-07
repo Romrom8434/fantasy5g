@@ -1119,12 +1119,22 @@ async function syncFromAPI() {
         }
       } else if (TSDB_LEAGUES[league]) {
         // TheSportsDB pour les divisions inférieures (clubs d'or)
-        const tsdbUrl = 'https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=' + TSDB_LEAGUES[league];
-        const res = await fetch(tsdbUrl);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        if (json?.table) {
-          standingsCache[league] = json.table.map(t => ({
+        const seasons = ['2026-2027', '2025-2026'];
+        let syncTable = null;
+        for (const season of seasons) {
+          const tsdbUrl = 'https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=' + TSDB_LEAGUES[league] + '&s=' + season;
+          const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(tsdbUrl);
+          try {
+            const res = await fetch(proxyUrl);
+            if (!res.ok) continue;
+            const text = await res.text();
+            if (!text || text.trim() === '' || text.trim() === 'null') continue;
+            const json = JSON.parse(text);
+            if (json?.table?.length) { syncTable = json.table; break; }
+          } catch(e) { continue; }
+        }
+        if (syncTable) {
+          standingsCache[league] = syncTable.map(t => ({
             name: t.strTeam,
             points: parseInt(t.intPoints) || 0,
             position: parseInt(t.intRank) || 0
@@ -1774,13 +1784,22 @@ async function loadLeague(id, forceRefresh = false) {
     let normalized = [];
 
     if (info.src === 'tsdb') {
-      // TheSportsDB — gratuit, sans CORS, clé publique 123
-      const tsdbUrl = `https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=${info.tsdbId}`;
-      const res = await fetch(tsdbUrl);
-      if (!res.ok) throw new Error('Erreur HTTP ' + res.status);
-      const json = await res.json();
-      const table = json?.table;
-      if (!table || !table.length) throw new Error('Données indisponibles');
+      // TheSportsDB — saison courante puis fallback saison précédente
+      const seasons = ['2026-2027', '2025-2026'];
+      let table = null;
+      for (const season of seasons) {
+        const tsdbUrl = `https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=${info.tsdbId}&s=${season}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(tsdbUrl)}`;
+        try {
+          const res = await fetch(proxyUrl);
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (!text || text.trim() === '' || text.trim() === 'null') continue;
+          const json = JSON.parse(text);
+          if (json?.table?.length) { table = json.table; break; }
+        } catch(e) { continue; }
+      }
+      if (!table || !table.length) throw new Error('Données indisponibles — saison non encore commencée ?');
       normalized = table.map(t => ({
         rank: parseInt(t.intRank),
         team: { name: t.strTeam, logo: t.strBadge ? t.strBadge.replace('/tiny','') : '' },
@@ -2001,11 +2020,21 @@ async function fetchFixturesFD(fdCode) {
 }
 
 async function fetchFixturesTSDB(tsdbId) {
-  const season = '2026-2027';
-  const url = `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${tsdbId}&s=${season}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
+  const seasons = ['2026-2027', '2025-2026'];
+  let json = null;
+  for (const season of seasons) {
+    const url = `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${tsdbId}&s=${season}`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    try {
+      const res = await fetch(proxyUrl);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim() === '' || text.trim() === 'null') continue;
+      const parsed = JSON.parse(text);
+      if (parsed?.events?.length) { json = parsed; break; }
+    } catch(e) { continue; }
+  }
+  if (!json) throw new Error('Données indisponibles');
   return (json.events || []).map(m => ({
     id: m.idEvent,
     date: m.dateEvent ? new Date(m.dateEvent + 'T' + (m.strTime || '15:00:00')) : null,
