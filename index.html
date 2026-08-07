@@ -392,6 +392,40 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   padding:7px 10px;background:var(--grey-bg);color:var(--ink3);
   width:100%;text-align:center;
 }
+
+/* ── DUELS ── */
+.duels-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;}
+.duels-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+.duel-filter-btn{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;font-weight:500;color:var(--ink3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;}
+.duel-filter-btn:hover{border-color:var(--pitch);color:var(--pitch);}
+.duel-filter-btn.on{background:var(--pitch);color:var(--white);border-color:var(--pitch);}
+.duels-status{font-size:12px;color:var(--ink3);margin-bottom:.75rem;min-height:18px;}
+.duels-section{margin-bottom:1.5rem;}
+.duels-section-title{font-size:11px;font-weight:600;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.6rem;display:flex;align-items:center;gap:8px;}
+.duels-section-title .league-dot-lg{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.duel-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:8px;display:grid;grid-template-columns:110px 1fr 110px;gap:12px;align-items:center;}
+.duel-card.past{opacity:.6;}
+.duel-card.next{border-left:3px solid var(--gold);}
+.duel-date{font-size:11px;color:var(--ink3);text-align:center;}
+.duel-date .day{font-size:15px;font-weight:700;color:var(--ink);font-family:'Syne',sans-serif;display:block;}
+.duel-date .journee{font-size:10px;color:var(--ink3);margin-top:2px;}
+.duel-match{display:flex;align-items:center;justify-content:center;gap:10px;}
+.duel-team{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0;}
+.duel-team-name{font-size:12px;font-weight:600;color:var(--ink);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
+.duel-owner{font-size:10px;color:var(--gold-dim);font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
+.duel-logo{width:28px;height:28px;object-fit:contain;}
+.duel-vs{font-size:13px;font-weight:700;color:var(--ink3);flex-shrink:0;}
+.duel-score{font-size:18px;font-weight:700;color:var(--pitch);font-family:'Syne',sans-serif;flex-shrink:0;}
+.duel-result{text-align:center;}
+.duel-result .score{font-size:20px;font-weight:700;color:var(--pitch);font-family:'Syne',sans-serif;}
+.duel-result .status{font-size:10px;color:var(--ink3);}
+.duels-empty{text-align:center;padding:3rem 1rem;color:var(--ink3);font-size:13px;}
+.duels-empty i{font-size:32px;display:block;margin-bottom:.75rem;opacity:.4;}
+@media(max-width:640px){
+  .duel-card{grid-template-columns:80px 1fr;gap:8px;}
+  .duel-result{display:none;}
+}
+
 </style>
 </head>
 <body>
@@ -444,6 +478,7 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     <button class="nav-btn on" onclick="goTab('classement')" data-tab="classement"><i class="ti ti-trophy"></i> Classement</button>
     <button class="nav-btn" onclick="goTab('joueurs')" data-tab="joueurs"><i class="ti ti-users"></i> Joueurs</button>
     <button class="nav-btn" onclick="goTab('championnats')" data-tab="championnats"><i class="ti ti-ball-football"></i> Championnats</button>
+    <button class="nav-btn" onclick="goTab('duels')" data-tab="duels"><i class="ti ti-swords"></i> Duels</button>
     <button class="nav-btn" onclick="goTab('maj')" data-tab="maj"><i class="ti ti-pencil"></i> MAJ hebdo</button>
     <button class="nav-btn" onclick="goTab('admin')" data-tab="admin"><i class="ti ti-settings-2"></i> Admin</button>
     <button class="nav-btn" onclick="goTab('regles')" data-tab="regles"><i class="ti ti-book"></i> Règles</button>
@@ -487,7 +522,7 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   <div class="maj-header">
     <div>
       <div class="maj-title">Mise à jour hebdomadaire</div>
-      <div class="maj-sub">Les clubs des 5 grands se mettent à jour automatiquement. Seul le club d'or est manuel.</div>
+      <div class="maj-sub">Les clubs des 5 grands et les clubs d'or (Championship, Ligue 2, League Two, Segunda) se mettent à jour via "Sync auto". Le club d'or reste éditable manuellement si besoin.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn-save-all" style="background:var(--gold);color:var(--pitch);" onclick="syncFromAPI()"><i class="ti ti-refresh" id="api-sync-icon"></i> Sync auto</button>
@@ -604,6 +639,23 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   </div>
 </div>
 
+
+<!-- ── DUELS ── -->
+<div id="tab-duels" class="tab">
+  <div class="duels-header">
+    <div>
+      <div class="maj-title">Duels Fantasy</div>
+      <div class="maj-sub">Tous les face-à-face entre clubs sélectionnés par vos joueurs, dans chaque championnat.</div>
+    </div>
+    <button class="btn-save-all" onclick="loadDuels(true)" id="duels-refresh-btn">
+      <i class="ti ti-refresh" id="duels-refresh-icon"></i> Actualiser
+    </button>
+  </div>
+  <div class="duels-filters" id="duels-filters"></div>
+  <div id="duels-status" class="duels-status"></div>
+  <div id="duels-content"></div>
+</div>
+
 </div><!-- /page -->
 
 <!-- BOTTOM NAV (mobile) -->
@@ -612,6 +664,7 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     <button class="bnav-btn on" onclick="goTab('classement')" data-tab="classement"     id="bn-classement"><i class="ti ti-trophy"></i>Classement</button>
     <button class="bnav-btn" onclick="goTab('joueurs')" data-tab="joueurs"        id="bn-joueurs"><i class="ti ti-users"></i>Joueurs</button>
     <button class="bnav-btn" onclick="goTab('championnats')" data-tab="championnats"   id="bn-championnats"><i class="ti ti-ball-football"></i>Ligues</button>
+    <button class="bnav-btn" onclick="goTab('duels')" data-tab="duels" id="bn-duels"><i class="ti ti-swords"></i>Duels</button>
     <button class="bnav-btn" onclick="goTab('maj')" data-tab="maj"            id="bn-maj"><i class="ti ti-pencil"></i>MAJ</button>
     <button class="bnav-btn" onclick="goTab('admin')" data-tab="admin"          id="bn-admin"><i class="ti ti-settings-2"></i>Admin</button>
     <button class="bnav-btn" onclick="goTab('regles')" data-tab="regles"         id="bn-regles"><i class="ti ti-book"></i>Règles</button>
@@ -1032,51 +1085,110 @@ async function syncFromAPI() {
   const icon = document.getElementById('api-sync-icon');
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
-  // Collecter tous les clubs uniques par championnat
-  const leagueMap = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1' }; // 5 grands uniquement pour sync auto
-  const standingsCache = {};
+  // Sources pour tous les championnats supportés
+  const FD_LEAGUES  = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1' };
+  const TSDB_LEAGUES = { 'Championship':'4329', 'Ligue 2':'4401', 'League Two':'4397', 'Segunda División':'4400' };
+
+  const standingsCache = {}; // { leagueName: [ {name, points, position} ] }
   let synced = 0, errors = 0;
 
-  // Charger les standings pour chaque championnat unique
+  // Collecter tous les championnats nécessaires (clubs + clubs d'or)
   const leaguesNeeded = new Set();
-  players.forEach(p => (p.clubs||[]).forEach(c => { if (leagueMap[c.league]) leaguesNeeded.add(c.league); }));
+  players.forEach(p => {
+    (p.clubs||[]).forEach(c => { if (c.league) leaguesNeeded.add(c.league); });
+    if (p.goldClub?.league) leaguesNeeded.add(p.goldClub.league);
+  });
 
   for (const league of leaguesNeeded) {
-    const code = leagueMap[league];
     try {
-      const fdUrl = 'https://api.football-data.org/v4/competitions/' + code + '/standings';
-      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
-        headers: { 'X-Auth-Token': FD_KEY }
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      const table = json?.standings?.[0]?.table;
-      if (table) standingsCache[league] = table;
+      if (FD_LEAGUES[league]) {
+        // football-data.org pour les 5 grands
+        const fdUrl = 'https://api.football-data.org/v4/competitions/' + FD_LEAGUES[league] + '/standings';
+        const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
+          headers: { 'X-Auth-Token': FD_KEY }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const table = json?.standings?.[0]?.table;
+        if (table) {
+          standingsCache[league] = table.map(t => ({
+            name: t.team.name,
+            points: t.points,
+            position: t.position
+          }));
+        }
+      } else if (TSDB_LEAGUES[league]) {
+        // TheSportsDB pour les divisions inférieures (clubs d'or)
+        const tsdbUrl = 'https://www.thesportsdb.com/api/v1/json/123/lookuptable.php?l=' + TSDB_LEAGUES[league];
+        const res = await fetch(tsdbUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        if (json?.table) {
+          standingsCache[league] = json.table.map(t => ({
+            name: t.strTeam,
+            points: parseInt(t.intPoints) || 0,
+            position: parseInt(t.intRank) || 0
+          }));
+        }
+      }
+      // Championnat non reconnu — on ignore silencieusement
     } catch(e) {
       errors++;
-      console.warn('Erreur chargement ' + league + ':', e.message);
+      console.warn('Erreur ' + league + ':', e.message);
     }
-    await new Promise(r => setTimeout(r, 200)); // Respect rate limit
+    await new Promise(r => setTimeout(r, 250));
   }
 
-  // Mettre à jour les clubs de chaque joueur
+  // Fonction de matching réutilisée
+  function findInTable(table, clubName) {
+    if (!table) return null;
+    const cn = clubName.toLowerCase().trim();
+    // Exact
+    let found = table.find(t => t.name.toLowerCase() === cn);
+    if (found) return found;
+    // Bidirectionnel strict
+    found = table.find(t => {
+      const tn = t.name.toLowerCase().trim();
+      const tWords = tn.split(' ').filter(w => w.length > 2);
+      const cWords = cn.split(' ').filter(w => w.length > 2);
+      const allCinT = cWords.length > 0 && cWords.every(w => tWords.includes(w));
+      const allTinC = tWords.length > 0 && tWords.every(w => cWords.includes(w));
+      return allCinT && allTinC;
+    });
+    if (found) return found;
+    // Inclusion (ex: "PSG" dans "Paris Saint-Germain")
+    found = table.find(t => {
+      const tn = t.name.toLowerCase().trim();
+      return (tn.includes(cn) && cn.length >= 4) || (cn.includes(tn) && tn.length >= 4);
+    });
+    return found || null;
+  }
+
+  // Mettre à jour les clubs des 5 grands
   players.forEach(p => {
     (p.clubs||[]).forEach(c => {
       const table = standingsCache[c.league];
-      if (!table) return;
-      // Chercher l'équipe dans le classement
-      const found = table.find(t =>
-        t.team.name.toLowerCase().includes(c.name.toLowerCase().split(' ')[0]) ||
-        c.name.toLowerCase().includes(t.team.name.toLowerCase().split(' ')[0])
-      );
+      const found = findInTable(table, c.name);
       if (found) {
         c.pts  = found.points;
         c.rank = String(found.position);
         synced++;
-      } else {
+      } else if (table) {
         errors++;
       }
     });
+    // Mettre à jour le club d'or
+    if (p.goldClub?.name && p.goldClub?.league) {
+      const table = standingsCache[p.goldClub.league];
+      const found = findInTable(table, p.goldClub.name);
+      if (found) {
+        p.goldClub.pts  = found.points;
+        p.goldClub.rank = String(found.position);
+        synced++;
+      } else if (table) {
+        errors++;
+      }
+    }
   });
 
   const now = new Date();
@@ -1086,7 +1198,7 @@ async function syncFromAPI() {
   saveLocal();
   const jbOk = await jbSave();
   renderAll();
-  renderMAJ(); // Refresh l'affichage MAJ avec les nouvelles valeurs
+  renderMAJ();
 
   if (icon) icon.className = 'ti ti-refresh';
 
@@ -1377,6 +1489,7 @@ function goTab(id) {
   if (id === 'classement')   renderChart();
   if (id === 'maj')          renderMAJ();
   if (id === 'championnats') loadLeague(currentLeague);
+  if (id === 'duels') loadDuels();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1570,10 +1683,10 @@ const LEAGUE_INFO = {
   78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, fdCode: 'BL1', src: 'fd' },
   61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, fdCode: 'FL1', src: 'fd' },
   // Divisions inférieures — source: TheSportsDB (gratuit, sans CORS)
-  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, tsdbId: '4331', src: 'tsdb' },
-  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3,              tsdbId: '4464', src: 'tsdb' },
-  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7,              tsdbId: '4333', src: 'tsdb' },
-  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6,              tsdbId: '4335', src: 'tsdb' }
+  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, tsdbId: '4329', src: 'tsdb' },
+  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3,              tsdbId: '4401', src: 'tsdb' },
+  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7,              tsdbId: '4397', src: 'tsdb' },
+  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6,              tsdbId: '4400', src: 'tsdb' }
 };
 // Clé football-data.org (gratuite, sans CORS, 10req/min)
 const FD_KEY = 'fbfc6d2f367e4a8f9cdbd723e480485a';
@@ -1819,6 +1932,271 @@ function renderStandings(standings, id) {
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+}
+
+
+// ── DUELS ──────────────────────────────────────────────────────────
+// Mapping championnat -> infos API pour les fixtures
+const FIXTURE_SOURCES = {
+  'Premier League': { src: 'fd',   fdCode: 'PL',  color: '#3d0063' },
+  'Liga':           { src: 'fd',   fdCode: 'PD',  color: '#ee7203' },
+  'Serie A':        { src: 'fd',   fdCode: 'SA',  color: '#0066b2' },
+  'Bundesliga':     { src: 'fd',   fdCode: 'BL1', color: '#d00027' },
+  'Ligue 1':        { src: 'fd',   fdCode: 'FL1', color: '#e21024' },
+  'Championship':   { src: 'tsdb', tsdbId: '4329', color: '#5a2d82' },
+  'Ligue 2':        { src: 'tsdb', tsdbId: '4401', color: '#c8922a' },
+  'League Two':     { src: 'tsdb', tsdbId: '4397', color: '#1a6b3c' },
+  'Segunda División':{ src: 'tsdb', tsdbId: '4400', color: '#e86c00' }
+};
+
+let duelsCache = {}; // { league: { matches, timestamp } }
+let duelsFilter = 'all'; // 'all', 'upcoming', 'past', or league name
+const DUELS_CACHE_DURATION = 30 * 60 * 1000; // 30 min
+
+// Retourne tous les clubs fantasy avec leur propriétaire, groupés par championnat
+function getFantasyClubsByLeague() {
+  const map = {}; // { leagueName: [ { name, owner, logo? } ] }
+  players.forEach(p => {
+    (p.clubs || []).forEach(c => {
+      if (!c.name || !c.league) return;
+      if (!map[c.league]) map[c.league] = [];
+      // Éviter les doublons (même club, 2 joueurs — impossible mais sécurité)
+      if (!map[c.league].find(x => x.name.toLowerCase() === c.name.toLowerCase())) {
+        map[c.league].push({ name: c.name, owner: p.name });
+      }
+    });
+  });
+  return map;
+}
+
+// Cherche le propriétaire d'un club par son nom (API)
+function findOwner(apiTeamName) {
+  for (const p of players) {
+    for (const c of (p.clubs || [])) {
+      if (matchesPlayerClub(apiTeamName, new Map([[c.name.toLowerCase(), [p.name]]]))) {
+        return p.name;
+      }
+    }
+  }
+  return null;
+}
+
+async function fetchFixturesFD(fdCode) {
+  const url = `https://api.football-data.org/v4/competitions/${fdCode}/matches?season=2026`;
+  const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
+    headers: { 'X-Auth-Token': FD_KEY }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  return (json.matches || []).map(m => ({
+    id: m.id,
+    date: m.utcDate ? new Date(m.utcDate) : null,
+    matchday: m.matchday,
+    home: { name: m.homeTeam.name, logo: '' },
+    away: { name: m.awayTeam.name, logo: '' },
+    status: m.status, // SCHEDULED, LIVE, IN_PLAY, PAUSED, FINISHED, POSTPONED
+    scoreHome: m.score?.fullTime?.home,
+    scoreAway: m.score?.fullTime?.away,
+  }));
+}
+
+async function fetchFixturesTSDB(tsdbId) {
+  const season = '2026-2027';
+  const url = `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${tsdbId}&s=${season}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  return (json.events || []).map(m => ({
+    id: m.idEvent,
+    date: m.dateEvent ? new Date(m.dateEvent + 'T' + (m.strTime || '15:00:00')) : null,
+    matchday: m.intRound ? parseInt(m.intRound) : null,
+    home: { name: m.strHomeTeam, logo: m.strHomeTeamBadge || '' },
+    away: { name: m.strAwayTeam, logo: m.strAwayTeamBadge || '' },
+    status: m.strStatus === 'Match Finished' ? 'FINISHED' : 'SCHEDULED',
+    scoreHome: m.intHomeScore !== null && m.intHomeScore !== '' ? parseInt(m.intHomeScore) : null,
+    scoreAway: m.intAwayScore !== null && m.intAwayScore !== '' ? parseInt(m.intAwayScore) : null,
+  }));
+}
+
+async function loadDuels(forceRefresh = false) {
+  if (!players.length) {
+    document.getElementById('duels-content').innerHTML =
+      '<div class="duels-empty"><i class="ti ti-swords"></i>Ajoute des joueurs avec leurs clubs pour voir les duels</div>';
+    return;
+  }
+
+  const icon = document.getElementById('duels-refresh-icon');
+  if (icon) icon.className = 'ti ti-refresh spin-i';
+  document.getElementById('duels-status').textContent = 'Chargement des calendriers...';
+  document.getElementById('duels-content').innerHTML = '';
+
+  const clubsByLeague = getFantasyClubsByLeague();
+  const leagues = Object.keys(clubsByLeague).filter(l => clubsByLeague[l].length >= 2);
+
+  if (!leagues.length) {
+    document.getElementById('duels-content').innerHTML =
+      '<div class="duels-empty"><i class="ti ti-swords"></i>Il faut au moins 2 clubs dans le même championnat pour avoir des duels</div>';
+    document.getElementById('duels-status').textContent = '';
+    if (icon) icon.className = 'ti ti-refresh';
+    return;
+  }
+
+  // Load fixtures for each relevant league
+  const now = Date.now();
+  let loaded = 0, errors = 0;
+  for (const league of leagues) {
+    const cached = duelsCache[league];
+    if (!forceRefresh && cached && (now - cached.timestamp) < DUELS_CACHE_DURATION) {
+      loaded++;
+      continue;
+    }
+    const src = FIXTURE_SOURCES[league];
+    if (!src) { errors++; continue; }
+    try {
+      document.getElementById('duels-status').textContent = 'Chargement ' + league + '...';
+      let matches;
+      if (src.src === 'fd') {
+        matches = await fetchFixturesFD(src.fdCode);
+      } else {
+        matches = await fetchFixturesTSDB(src.tsdbId);
+      }
+      duelsCache[league] = { matches, timestamp: Date.now() };
+      loaded++;
+    } catch(e) {
+      errors++;
+      console.warn('Erreur fixtures ' + league + ':', e.message);
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  renderDuels(clubsByLeague, leagues);
+  renderDuelsFilters(leagues);
+  if (icon) icon.className = 'ti ti-refresh';
+  const t = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  document.getElementById('duels-status').textContent =
+    loaded + ' championnat(s) chargé(s)' + (errors ? ' · ' + errors + ' erreur(s)' : '') + ' · ' + t;
+}
+
+function renderDuelsFilters(leagues) {
+  const el = document.getElementById('duels-filters');
+  const all = [
+    { key: 'all', label: 'Tous' },
+    { key: 'upcoming', label: '⏳ À venir' },
+    { key: 'past', label: '✓ Passés' },
+    ...leagues.map(l => ({ key: l, label: l }))
+  ];
+  el.innerHTML = all.map(f =>
+    `<button class="duel-filter-btn ${duelsFilter === f.key ? 'on' : ''}"
+      onclick="setDuelsFilter('${f.key}')">${f.label}</button>`
+  ).join('');
+}
+
+function setDuelsFilter(key) {
+  duelsFilter = key;
+  const clubsByLeague = getFantasyClubsByLeague();
+  const leagues = Object.keys(clubsByLeague).filter(l => clubsByLeague[l].length >= 2);
+  renderDuels(clubsByLeague, leagues);
+  renderDuelsFilters(leagues);
+}
+
+function renderDuels(clubsByLeague, leagues) {
+  const container = document.getElementById('duels-content');
+  const now = new Date();
+  let totalDuels = 0;
+  let html = '';
+
+  // Filter leagues if needed
+  const leaguesToShow = duelsFilter === 'all' || duelsFilter === 'upcoming' || duelsFilter === 'past'
+    ? leagues
+    : leagues.filter(l => l === duelsFilter);
+
+  for (const league of leaguesToShow) {
+    const cached = duelsCache[league];
+    if (!cached) continue;
+    const fantasyClubs = clubsByLeague[league]; // [{name, owner}]
+    const src = FIXTURE_SOURCES[league];
+    const color = src?.color || '#888';
+
+    // Filter: only matches between 2 fantasy clubs
+    let duels = cached.matches.filter(m => {
+      const hOwner = findOwner(m.home.name);
+      const aOwner = findOwner(m.away.name);
+      return hOwner && aOwner && hOwner !== aOwner;
+    });
+
+    // Apply upcoming/past filter
+    if (duelsFilter === 'upcoming') duels = duels.filter(m => !m.date || m.date >= now || m.status !== 'FINISHED');
+    if (duelsFilter === 'past')     duels = duels.filter(m => m.status === 'FINISHED' || (m.date && m.date < now));
+
+    if (!duels.length) continue;
+
+    // Sort: upcoming first, then past
+    duels.sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date - b.date;
+    });
+
+    totalDuels += duels.length;
+    html += `<div class="duels-section">
+      <div class="duels-section-title">
+        <span class="league-dot-lg" style="background:${color};"></span>
+        ${league} — ${duels.length} duel${duels.length > 1 ? 's' : ''}
+      </div>`;
+
+    duels.forEach(m => {
+      const hOwner = findOwner(m.home.name);
+      const aOwner = findOwner(m.away.name);
+      const isFinished = m.status === 'FINISHED';
+      const isUpcoming = !isFinished && m.date && m.date > now;
+      const cardClass = isFinished ? 'past' : (isUpcoming && m.date && (m.date - now) < 7*24*60*60*1000 ? 'next' : '');
+
+      const dateStr = m.date
+        ? m.date.toLocaleDateString('fr-FR', { weekday:'short', day:'2-digit', month:'short' })
+        : '—';
+      const timeStr = m.date && !isFinished
+        ? m.date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+        : '';
+
+      const scoreBlock = isFinished && m.scoreHome !== null
+        ? `<div class="duel-result"><div class="score">${m.scoreHome} – ${m.scoreAway}</div><div class="status">Terminé</div></div>`
+        : timeStr
+          ? `<div class="duel-result"><div class="score" style="font-size:14px;color:var(--ink3);">${timeStr}</div><div class="status">À venir</div></div>`
+          : `<div class="duel-result"><div class="score" style="font-size:13px;color:var(--ink3);">–</div></div>`;
+
+      const hLogo = m.home.logo ? `<img class="duel-logo" src="${m.home.logo}" alt="" loading="lazy" onerror="this.style.display='none'"/>` : '';
+      const aLogo = m.away.logo ? `<img class="duel-logo" src="${m.away.logo}" alt="" loading="lazy" onerror="this.style.display='none'"/>` : '';
+
+      html += `<div class="duel-card ${cardClass}">
+        <div class="duel-date">
+          <span class="day">${dateStr}</span>
+          ${m.matchday ? `<div class="journee">J${m.matchday}</div>` : ''}
+        </div>
+        <div class="duel-match">
+          <div class="duel-team">
+            ${hLogo}
+            <div class="duel-team-name">${m.home.name}</div>
+            <div class="duel-owner">★ ${hOwner}</div>
+          </div>
+          <div class="duel-vs">vs</div>
+          <div class="duel-team">
+            ${aLogo}
+            <div class="duel-team-name">${m.away.name}</div>
+            <div class="duel-owner">★ ${aOwner}</div>
+          </div>
+        </div>
+        ${scoreBlock}
+      </div>`;
+    });
+
+    html += '</div>';
+  }
+
+  if (!totalDuels) {
+    html = '<div class="duels-empty"><i class="ti ti-swords"></i>Aucun duel trouvé entre les clubs sélectionnés</div>';
+  }
+
+  container.innerHTML = html;
 }
 
 </script>
