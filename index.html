@@ -1679,12 +1679,18 @@ init();
 // ── SERVICE WORKER ────────────────────────────────────────────────
 let deferredPrompt = null;
 
-// Désinstalle tout Service Worker existant (cause des problèmes CORS)
+// Désinstalle tout SW existant et vide les caches — force le rechargement fresh
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(r => r.unregister());
   });
-  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  if (window.caches) {
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+  }
+  // Enregistre le nouveau SW minimal (auto-destruction)
+  navigator.serviceWorker.register('/fantasy5g/sw.js', { scope: '/fantasy5g/' })
+    .then(reg => reg.update())
+    .catch(() => {});
 }
 
 window.addEventListener('beforeinstallprompt', e => {
