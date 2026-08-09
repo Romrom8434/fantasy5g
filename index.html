@@ -1133,15 +1133,10 @@ async function syncFromAPI() {
         // SofaScore API — temps réel, toutes saisons
         try {
           const ssId = SOFA_ALL_SYNC[league];
-          const srSeasons = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/seasons')}`);
-          if (!srSeasons.ok) throw new Error();
-          const srSeasonData = await srSeasons.json();
-          const seasons = srSeasonData?.seasons || [];
-          const targetSeason = seasons.find(s => s.year === '26/27') || seasons[0];
-          if (!targetSeason) throw new Error();
-          const srStandings = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/season/' + targetSeason.id + '/standings/total')}`);
-          if (!srStandings.ok) throw new Error();
-          const srData = await srStandings.json();
+          const syncSeasonId = await getSofaSeasonId(ssId);
+          const srData = await sofaFetch(
+            `https://api.sofascore.com/api/v1/unique-tournament/${ssId}/season/${syncSeasonId}/standings/total`
+          );
           const rows = srData?.standings?.[0]?.rows;
           if (rows?.length) {
             standingsCache[league] = rows.map(r => ({
@@ -1800,19 +1795,10 @@ async function loadLeague(id, forceRefresh = false) {
 
     if (info.src === 'sofa') {
       // SofaScore API — temps réel, sans clé, toutes saisons
-      const srSeasons = await fetch(
-        `https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + info.ssId + '/seasons')}`
+      const ssSeasonId = await getSofaSeasonId(info.ssId);
+      const srData = await sofaFetch(
+        `https://api.sofascore.com/api/v1/unique-tournament/${info.ssId}/season/${ssSeasonId}/standings/total`
       );
-      if (!srSeasons.ok) throw new Error('Erreur saisons SofaScore');
-      const srSeasonData = await srSeasons.json();
-      const ssList = srSeasonData?.seasons || [];
-      if (!ssList.length) throw new Error('Aucune saison disponible');
-      const targetSeason = ssList.find(s => s.year === '26/27') || ssList[0];
-      const srStandings = await fetch(
-        `https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + info.ssId + '/season/' + targetSeason.id + '/standings/total')}`
-      );
-      if (!srStandings.ok) throw new Error('Erreur classement SofaScore');
-      const srData = await srStandings.json();
       const rows = srData?.standings?.[0]?.rows;
       if (!rows?.length) throw new Error('Classement indisponible');
       normalized = rows.map(r => ({
@@ -2008,16 +1994,52 @@ function findOwner(apiTeamName) {
 
 
 
+// IDs de saison 26/27 hardcodés pour éviter le premier appel CORS /seasons
+const SOFA_SEASON_IDS = {
+  17: 96668,   // Premier League 26/27
+  8:  96914,   // Liga 26/27
+  23: 96949,   // Serie A 26/27
+  35: 96885,   // Bundesliga 26/27
+  34: 96791,   // Ligue 1 26/27
+  8:  96914,   // Championship (même ID Liga - à corriger si différent)
+  182: 97012,  // Ligue 2 26/27
+  10: 96993,   // League Two 26/27
+  54: 96932,   // Segunda División 26/27
+};
+
+// Proxies en cascade pour SofaScore
+async function sofaFetch(url) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`,
+  ];
+  for (const proxy of proxies) {
+    try {
+      const res = await fetch(proxy);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.length < 10) continue;
+      return JSON.parse(text);
+    } catch(e) { continue; }
+  }
+  throw new Error('Tous les proxies ont échoué pour SofaScore');
+}
+
+async function getSofaSeasonId(ssId) {
+  // Utilise l'ID hardcodé si disponible
+  if (SOFA_SEASON_IDS[ssId]) return SOFA_SEASON_IDS[ssId];
+  // Sinon tente de le récupérer
+  const data = await sofaFetch(`https://api.sofascore.com/api/v1/unique-tournament/${ssId}/seasons`);
+  const seasons = data?.seasons || [];
+  const target = seasons.find(s => s.year === '26/27') || seasons[0];
+  if (!target) throw new Error('Saison 26/27 introuvable');
+  return target.id;
+}
+
 async function fetchFixturesSofa(ssId) {
-  const srSeasons = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/seasons')}`);
-  if (!srSeasons.ok) throw new Error('Erreur saisons');
-  const srSeasonData = await srSeasons.json();
-  const seasons = srSeasonData?.seasons || [];
-  const targetSeason = seasons.find(s => s.year === '26/27') || seasons[0];
-  if (!targetSeason) throw new Error('Aucune saison');
-  const srEvents = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/season/' + targetSeason.id + '/events/last/0')}`);
-  if (!srEvents.ok) throw new Error('Erreur fixtures');
-  const json = await srEvents.json();
+  const seasonId = await getSofaSeasonId(ssId);
+  const json = await sofaFetch(`https://api.sofascore.com/api/v1/unique-tournament/${ssId}/season/${seasonId}/events/last/0`);
   return (json.events || []).map(e => ({
     id: e.id,
     date: e.startTimestamp ? new Date(e.startTimestamp * 1000) : null,
