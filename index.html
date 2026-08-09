@@ -1113,22 +1113,43 @@ async function fetchStandingsESPN(espnSlug) {
   const res = await fetch(url);
   if (!res.ok) throw new Error('ESPN HTTP ' + res.status);
   const json = await res.json();
-  // ESPN standings structure: json.children[0].standings.entries
-  const entries = json?.children?.[0]?.standings?.entries || json?.standings?.entries || [];
-  if (!entries.length) throw new Error('Classement ESPN vide');
-  return entries.map((e, i) => ({
-    rank: e.stats?.find(s => s.name === 'rank')?.value || (i + 1),
-    team: { name: e.team?.displayName || e.team?.name || '?', logo: e.team?.logos?.[0]?.href || '' },
-    all: {
-      played: e.stats?.find(s => s.name === 'gamesPlayed')?.value || 0,
-      win:    e.stats?.find(s => s.name === 'wins')?.value || 0,
-      draw:   e.stats?.find(s => s.name === 'ties')?.value || 0,
-      lose:   e.stats?.find(s => s.name === 'losses')?.value || 0,
-    },
-    goalsDiff: e.stats?.find(s => s.name === 'pointDifferential')?.value || 0,
-    points: e.stats?.find(s => s.name === 'points')?.value || 0,
-    form: ''
-  })).sort((a, b) => a.rank - b.rank);
+
+  // ESPN peut retourner les données dans plusieurs structures selon la ligue
+  let entries = [];
+  if (json?.children?.length) {
+    // Structure avec groupes (ex: Championship avec poules)
+    for (const child of json.children) {
+      const e = child?.standings?.entries || [];
+      entries = entries.concat(e);
+    }
+  }
+  if (!entries.length) {
+    entries = json?.standings?.entries || [];
+  }
+  if (!entries.length) throw new Error('Classement ESPN indisponible');
+
+  const getStat = (stats, name) => {
+    const s = (stats || []).find(x => x.name === name || x.shortDisplayName === name);
+    return s ? (parseFloat(s.value) || 0) : 0;
+  };
+
+  return entries.map((e, i) => {
+    const stats = e.stats || [];
+    const rank = getStat(stats, 'rank') || getStat(stats, 'playoffSeed') || (i + 1);
+    return {
+      rank,
+      team: { name: e.team?.displayName || e.team?.name || '?', logo: e.team?.logos?.[0]?.href || '' },
+      all: {
+        played: getStat(stats, 'gamesPlayed'),
+        win:    getStat(stats, 'wins'),
+        draw:   getStat(stats, 'ties') || getStat(stats, 'draws'),
+        lose:   getStat(stats, 'losses'),
+      },
+      goalsDiff: getStat(stats, 'pointDifferential') || getStat(stats, 'goalDifferential'),
+      points: getStat(stats, 'points'),
+      form: ''
+    };
+  }).sort((a, b) => a.rank - b.rank);
 }
 
 async function syncFromAPI() {
