@@ -1863,16 +1863,7 @@ async function loadLeague(id, forceRefresh = false) {
     } else if (info.src === 'espn') {
       // ESPN API — gratuit, sans clé, temps réel, pas de CORS
       normalized = await fetchStandingsESPN(info.espnSlug);
-
-      if (!standings.length) throw new Error('Saison non encore commencée');
-      normalized = standings.map((t, i) => ({
-        rank: i + 1,
-        team: { name: t.name, logo: '' },
-        all:  { played: t.played, win: t.won, draw: t.drawn, lose: t.lost },
-        goalsDiff: t.gf - t.ga,
-        points: t.points,
-        form: ''
-      }));
+      if (!normalized.length) throw new Error('Classement ESPN indisponible');
     }
 
     leagueCache[id] = { data: normalized, timestamp: Date.now() };
@@ -1890,7 +1881,7 @@ async function loadLeague(id, forceRefresh = false) {
     const upd = document.getElementById('champ-last-update');
     if (upd) {
       const t = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-      upd.textContent = 'Actualisé à ' + t + ' · SofaScore';
+      upd.textContent = 'Actualisé à ' + t + ' · ' + (info.src === 'fd' ? 'football-data.org' : info.src === 'espn' ? 'ESPN' : 'TheSportsDB');
     }
   }
 }
