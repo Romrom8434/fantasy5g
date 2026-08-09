@@ -1157,7 +1157,7 @@ async function syncFromAPI() {
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
   // Sources pour tous les championnats supportés
-  const FD_LEAGUES_SYNC  = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1', 'Championship':'ELC' };
+  const ESPN_ALL_SYNC = { 'Premier League':'eng.1', 'Liga':'esp.1', 'Serie A':'ita.1', 'Bundesliga':'ger.1', 'Ligue 1':'fra.1', 'Championship':'eng.2', 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2' };
   const ESPN_LEAGUES_SYNC = { 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2' };
   const SOFA_LEAGUES_SYNC = { 'Ligue 2': 182, 'League Two': 10, 'Segunda División': 54 };
   const OFB_SEASONS = ['2025-26', '2024-25'];
@@ -1175,23 +1175,9 @@ async function syncFromAPI() {
 
   for (const league of leaguesNeeded) {
     try {
-      if (FD_LEAGUES_SYNC[league]) {
+      if (ESPN_ALL_SYNC[league]) {
         try {
-          const fdUrl = 'https://api.football-data.org/v4/competitions/' + FD_LEAGUES_SYNC[league] + '/standings';
-          const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
-            headers: { 'X-Auth-Token': FD_KEY }
-          });
-          if (res.ok) {
-            const json = await res.json();
-            const table = json?.standings?.[0]?.table;
-            if (table) {
-              standingsCache[league] = table.map(t => ({ name: t.team.name, points: t.points, position: t.position }));
-            } else errors++;
-          } else errors++;
-        } catch(e) { errors++; }
-      } else if (ESPN_LEAGUES_SYNC[league]) {
-        try {
-          const rows = await fetchStandingsESPN(ESPN_LEAGUES_SYNC[league]);
+          const rows = await fetchStandingsESPN(ESPN_ALL_SYNC[league]);
           standingsCache[league] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank }));
         } catch(e) { errors++; }
       }
@@ -1748,13 +1734,13 @@ window.addEventListener('appinstalled', () => {
 const LEAGUE_INFO = {
   // Toutes les ligues — source unique: SofaScore
   // 5 grands — football-data.org
-  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PL',   src: 'fd' },
-  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PD',   src: 'fd' },
-  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, fdCode: 'SA',   src: 'fd' },
-  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, fdCode: 'BL1',  src: 'fd' },
-  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, fdCode: 'FL1',  src: 'fd' },
+  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, espnSlug: 'eng.1', src: 'espn' },
+  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, espnSlug: 'esp.1', src: 'espn' },
+  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, espnSlug: 'ita.1', src: 'espn' },
+  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, espnSlug: 'ger.1', src: 'espn' },
+  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, espnSlug: 'fra.1', src: 'espn' },
   // Divisions inférieures — football-data.org (Championship) + TheSportsDB
-  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, fdCode: 'ELC',  src: 'fd'   },
+  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, espnSlug: 'eng.2', src: 'espn' },
   66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, espnSlug: 'fra.2', src: 'espn' },
   67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, espnSlug: 'eng.4', src: 'espn' },
   141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, espnSlug: 'esp.2', src: 'espn' }
@@ -1762,7 +1748,6 @@ const LEAGUE_INFO = {
 // Clé football-data.org conservée pour compatibilité (non utilisée)
 // Clé football-data.org
 
-const FD_KEY = 'fbfc6d2f367e4a8f9cdbd723e480485a';
 let currentLeague = 39;
 let leagueCache = {}; // { leagueId: { data, timestamp } }
 const CACHE_DURATION = 10 * 60 * 1000; // 10 min
@@ -1842,25 +1827,7 @@ async function loadLeague(id, forceRefresh = false) {
     const info = LEAGUE_INFO[id];
     let normalized = [];
 
-    if (info.src === 'fd') {
-      // football-data.org via corsproxy
-      const fdUrl = `https://api.football-data.org/v4/competitions/${info.fdCode}/standings`;
-      const fdRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(fdUrl)}`, {
-        headers: { 'X-Auth-Token': FD_KEY }
-      });
-      if (!fdRes.ok) throw new Error('Erreur HTTP ' + fdRes.status);
-      const fdJson = await fdRes.json();
-      const table = fdJson?.standings?.[0]?.table;
-      if (!table) throw new Error('Données indisponibles');
-      normalized = table.map(t => ({
-        rank: t.position,
-        team: { name: t.team.name, logo: t.team.crest },
-        all:  { played: t.playedGames, win: t.won, draw: t.draw, lose: t.lost },
-        goalsDiff: t.goalDifference,
-        points: t.points,
-        form: t.form || ''
-      }));
-    } else if (info.src === 'espn') {
+    if (info.src === 'espn') {
       // ESPN API — gratuit, sans clé, temps réel, pas de CORS
       normalized = await fetchStandingsESPN(info.espnSlug);
       if (!normalized.length) throw new Error('Classement ESPN indisponible');
@@ -1881,7 +1848,7 @@ async function loadLeague(id, forceRefresh = false) {
     const upd = document.getElementById('champ-last-update');
     if (upd) {
       const t = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-      upd.textContent = 'Actualisé à ' + t + ' · ' + (info.src === 'fd' ? 'football-data.org' : info.src === 'espn' ? 'ESPN' : 'TheSportsDB');
+      upd.textContent = 'Actualisé à ' + t + ' · ' + 'ESPN';
     }
   }
 }
@@ -2030,12 +1997,12 @@ function findOwner(apiTeamName) {
 
 
 const FIXTURE_SOURCES = {
-  'Premier League': { src: 'fd',   fdCode: 'PL',  color: '#3d0063' },
-  'Liga':           { src: 'fd',   fdCode: 'PD',  color: '#ee7203' },
-  'Serie A':        { src: 'fd',   fdCode: 'SA',  color: '#0066b2' },
-  'Bundesliga':     { src: 'fd',   fdCode: 'BL1', color: '#d00027' },
-  'Ligue 1':        { src: 'fd',   fdCode: 'FL1', color: '#e21024' },
-  'Championship':   { src: 'fd',   fdCode: 'ELC', color: '#5a2d82' },
+  'Premier League': { src: 'espn', espnSlug: 'eng.1', color: '#3d0063' },
+  'Liga':           { src: 'espn', espnSlug: 'esp.1', color: '#ee7203' },
+  'Serie A':        { src: 'espn', espnSlug: 'ita.1', color: '#0066b2' },
+  'Bundesliga':     { src: 'espn', espnSlug: 'ger.1', color: '#d00027' },
+  'Ligue 1':        { src: 'espn', espnSlug: 'fra.1', color: '#e21024' },
+  'Championship':   { src: 'espn', espnSlug: 'eng.2', color: '#5a2d82' },
   'Ligue 2':         { src: 'espn', espnSlug: 'fra.2', color: '#c8922a' },
   'League Two':      { src: 'espn', espnSlug: 'eng.4', color: '#1a6b3c' },
   'Segunda División':{ src: 'espn', espnSlug: 'esp.2', color: '#e86c00' }
@@ -2071,20 +2038,7 @@ async function getSofaSeasonId(ssId) {
   return target.id;
 }
 
-async function fetchFixturesSofa(ssId) {
-  const seasonId = await getSofaSeasonId(ssId);
-  const json = await sofaFetch(`https://api.sofascore.com/api/v1/unique-tournament/${ssId}/season/${seasonId}/events/last/0`);
-  return (json.events || []).map(e => ({
-    id: e.id,
-    date: e.startTimestamp ? new Date(e.startTimestamp * 1000) : null,
-    matchday: e.roundInfo?.round || null,
-    home: { name: e.homeTeam.name, logo: `https://api.sofascore.com/api/v1/team/${e.homeTeam.id}/image` },
-    away: { name: e.awayTeam.name, logo: `https://api.sofascore.com/api/v1/team/${e.awayTeam.id}/image` },
-    status: e.status?.type === 'finished' ? 'FINISHED' : 'SCHEDULED',
-    scoreHome: e.homeScore?.current ?? null,
-    scoreAway: e.awayScore?.current ?? null,
-  }));
-}
+// fetchFixturesSofa removed
 
 async function loadDuels(forceRefresh = false) {
   if (!players.length) {
@@ -2124,9 +2078,9 @@ async function loadDuels(forceRefresh = false) {
       document.getElementById('duels-status').textContent = 'Chargement ' + league + '...';
       let matches;
       if (src.src === 'fd') {
-        matches = src.src === 'fd' ? await fetchFixturesFD(src.fdCode) : await fetchFixturesTSDB(src.tsdbId);
+        matches = await fetchFixturesESPN(src.espnSlug);
       } else {
-        matches = src.src === 'fd' ? await fetchFixturesFD(src.fdCode) : await fetchFixturesTSDB(src.tsdbId);
+        matches = await fetchFixturesESPN(src.espnSlug);
       }
       duelsCache[league] = { matches, timestamp: Date.now() };
       loaded++;
