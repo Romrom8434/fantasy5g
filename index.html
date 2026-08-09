@@ -1958,6 +1958,30 @@ function renderStandings(standings, id) {
 }
 
 
+
+async function fetchFixturesESPN(espnSlug) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  return (json.events || []).map(ev => {
+    const comp = ev.competitions?.[0];
+    const home = comp?.competitors?.find(c => c.homeAway === 'home');
+    const away = comp?.competitors?.find(c => c.homeAway === 'away');
+    const finished = comp?.status?.type?.completed;
+    return {
+      id: ev.id,
+      date: ev.date ? new Date(ev.date) : null,
+      matchday: comp?.week?.number || null,
+      home: { name: home?.team?.displayName || '?', logo: home?.team?.logo || '' },
+      away: { name: away?.team?.displayName || '?', logo: away?.team?.logo || '' },
+      status: finished ? 'FINISHED' : 'SCHEDULED',
+      scoreHome: finished ? parseInt(home?.score) : null,
+      scoreAway: finished ? parseInt(away?.score) : null,
+    };
+  });
+}
+
 // ── DUELS ──────────────────────────────────────────────────────────
 // Mapping championnat -> infos API pour les fixtures
 // FIXTURE_SOURCES defined below
@@ -2077,11 +2101,7 @@ async function loadDuels(forceRefresh = false) {
     try {
       document.getElementById('duels-status').textContent = 'Chargement ' + league + '...';
       let matches;
-      if (src.src === 'fd') {
-        matches = await fetchFixturesESPN(src.espnSlug);
-      } else {
-        matches = await fetchFixturesESPN(src.espnSlug);
-      }
+      matches = await fetchFixturesESPN(src.espnSlug);
       duelsCache[league] = { matches, timestamp: Date.now() };
       loaded++;
     } catch(e) {
