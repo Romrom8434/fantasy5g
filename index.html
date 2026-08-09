@@ -1960,7 +1960,8 @@ function renderStandings(standings, id) {
 
 
 async function fetchFixturesESPN(espnSlug) {
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard`;
+  // ESPN scoreboard avec plage de dates couvrant toute la saison 2026-27 en un seul appel
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=20260801-20270601&limit=500`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
