@@ -1080,7 +1080,7 @@ async function saveAllMAJ() {
   }
 }
 
-// ── SYNC AUTO DEPUIS football-data.org ───────────────────────────
+// ── SYNC AUTO DEPUIS SofaScore ─────────────────────────────────
 
 // Calcule un classement complet à partir des fixtures openfootball
 function computeStandingsFromFixtures(matches) {
@@ -1112,8 +1112,8 @@ async function syncFromAPI() {
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
   // Sources pour tous les championnats supportés
-  const FD_LEAGUES  = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1' };
-  const OFB_LEAGUES = { 'Ligue 2':'fr.2.json', 'League Two':'en.4.json', 'Segunda División':'es.2.json' };
+  const SOFA_ALL_SYNC = { 'Premier League':17, 'Liga':8, 'Serie A':23, 'Bundesliga':35, 'Ligue 1':34, 'Championship':8, 'Ligue 2':182, 'League Two':10, 'Segunda División':54 };
+  const SOFA_LEAGUES_SYNC = { 'Ligue 2': 182, 'League Two': 10, 'Segunda División': 54 };
   const OFB_SEASONS = ['2025-26', '2024-25'];
   const FD_EXTRA = { 'Championship': 'ELC' };
 
@@ -1129,53 +1129,26 @@ async function syncFromAPI() {
 
   for (const league of leaguesNeeded) {
     try {
-      if (FD_LEAGUES[league]) {
-        // football-data.org pour les 5 grands
-        const fdUrl = 'https://api.football-data.org/v4/competitions/' + FD_LEAGUES[league] + '/standings';
-        const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
-          headers: { 'X-Auth-Token': FD_KEY }
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        const table = json?.standings?.[0]?.table;
-        if (table) {
-          standingsCache[league] = table.map(t => ({
-            name: t.team.name,
-            points: t.points,
-            position: t.position
-          }));
-        }
-      } else if (FD_EXTRA[league]) {
-        // football-data.org pour Championship
-        const fdUrl = 'https://api.football-data.org/v4/competitions/' + FD_EXTRA[league] + '/standings';
-        const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
-          headers: { 'X-Auth-Token': FD_KEY }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const table = json?.standings?.[0]?.table;
-          if (table) {
-            standingsCache[league] = table.map(t => ({
-              name: t.team.name, points: t.points, position: t.position
+      if (SOFA_ALL_SYNC[league]) {
+        // SofaScore API — temps réel, toutes saisons
+        try {
+          const ssId = SOFA_ALL_SYNC[league];
+          const srSeasons = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/seasons')}`);
+          if (!srSeasons.ok) throw new Error();
+          const srSeasonData = await srSeasons.json();
+          const seasons = srSeasonData?.seasons || [];
+          const targetSeason = seasons.find(s => s.year === '26/27') || seasons[0];
+          if (!targetSeason) throw new Error();
+          const srStandings = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/season/' + targetSeason.id + '/standings/total')}`);
+          if (!srStandings.ok) throw new Error();
+          const srData = await srStandings.json();
+          const rows = srData?.standings?.[0]?.rows;
+          if (rows?.length) {
+            standingsCache[league] = rows.map(r => ({
+              name: r.team.name, points: r.points, position: r.position
             }));
-          }
-        }
-      } else if (OFB_LEAGUES[league]) {
-        // openfootball/football.json — open source, sans clé, complet
-        let ofbDone = false;
-        for (const s of OFB_SEASONS) {
-          const ofbUrl = 'https://raw.githubusercontent.com/openfootball/football.json/master/' + s + '/' + OFB_LEAGUES[league];
-          try {
-            const res = await fetch(ofbUrl);
-            if (!res.ok) continue;
-            const text = await res.text();
-            if (!text || text.trim() === '') continue;
-            const json = JSON.parse(text);
-            const table = computeStandingsFromFixtures(json.matches || []);
-            if (table.length) { standingsCache[league] = table; ofbDone = true; break; }
-          } catch(e) { continue; }
-        }
-        if (!ofbDone) errors++;
+          } else { errors++; }
+        } catch(e) { errors++; }
       }
       // Championnat non reconnu — on ignore silencieusement
     } catch(e) {
@@ -1726,21 +1699,21 @@ window.addEventListener('appinstalled', () => {
 
 
 // ── CHAMPIONNATS ─────────────────────────────────────────────────
-// IDs pour football-data.org (PL=PL, SA=SA, BL1=BL1, PD=PD, FL1=FL1)
+// IDs SofaScore pour tous les championnats
 const LEAGUE_INFO = {
-  // 5 grands — source: football-data.org
-  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PL',  src: 'fd' },
-  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PD',  src: 'fd' },
-  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, fdCode: 'SA',  src: 'fd' },
-  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, fdCode: 'BL1', src: 'fd' },
-  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, fdCode: 'FL1', src: 'fd' },
+  // Toutes les ligues — source unique: SofaScore
+  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, ssId: 17,  src: 'sofa' },
+  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, ssId: 8,   src: 'sofa' },
+  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, ssId: 23,  src: 'sofa' },
+  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, ssId: 35,  src: 'sofa' },
+  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, ssId: 34,  src: 'sofa' },
   // Divisions inférieures
-  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, fdCode: 'ELC',  src: 'fd' },
-  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, ofbFile: 'fr.2.json', src: 'ofb' },
-  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, ofbFile: 'en.4.json', src: 'ofb' },
-  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, ofbFile: 'es.2.json', src: 'ofb' }
+  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, ssId: 8,   src: 'sofa' },
+  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, ssId: 182,  src: 'sofa' },
+  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, ssId: 10,   src: 'sofa' },
+  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, ssId: 54,   src: 'sofa' }
 };
-// Clé football-data.org (gratuite, sans CORS, 10req/min)
+// Clé football-data.org conservée pour compatibilité (non utilisée)
 const FD_KEY = 'fbfc6d2f367e4a8f9cdbd723e480485a';
 
 let currentLeague = 39;
@@ -1825,44 +1798,32 @@ async function loadLeague(id, forceRefresh = false) {
     const info = LEAGUE_INFO[id];
     let normalized = [];
 
-    if (info.src === 'ofb') {
-      // Tente d'abord 2026-27, sinon affiche un message d'attente
-      const seasons = ['2026-27', '2025-26'];
-      let ofbJson = null;
-      let foundSeason = null;
-      for (const s of seasons) {
-        const ofbUrl = `https://raw.githubusercontent.com/openfootball/football.json/master/${s}/${info.ofbFile}`;
-        try {
-          const res = await fetch(ofbUrl);
-          if (!res.ok) continue;
-          const text = await res.text();
-          if (!text || text.trim() === '') continue;
-          ofbJson = JSON.parse(text);
-          if (ofbJson?.matches?.length) { foundSeason = s; break; }
-        } catch(e) { continue; }
-      }
-      if (!ofbJson || !foundSeason) {
-        // Données pas encore disponibles pour 2026-27
-        document.getElementById('champ-table-wrap').innerHTML =
-          '<div class="champ-error" style="color:var(--ink);">' +
-          '<i class="ti ti-clock" style="font-size:32px;color:var(--gold);display:block;margin-bottom:.75rem;opacity:1;"></i>' +
-          '<strong>Saison 2026–27 bientôt disponible</strong><br>' +
-          '<span style="font-size:12px;color:var(--ink3);margin-top:8px;display:block;line-height:1.7;">' +
-          'Les données de ' + info.name + ' pour la saison 2026–27<br>seront disponibles dès que la base openfootball sera mise à jour.<br>' +
-          '<a href="https://github.com/openfootball/football.json" target="_blank" style="color:var(--pitch);">github.com/openfootball</a>' +
-          '</span>' +
-          '<button class="champ-refresh-btn" onclick="loadLeague(' + id + ', true)" style="margin:1rem auto 0;">' +
-          '<i class="ti ti-refresh"></i> Réessayer</button></div>';
-        document.getElementById('champ-loading').style.display = 'none';
-        if (refreshIcon) refreshIcon.className = 'ti ti-refresh';
-        return;
-      }
-      if (foundSeason !== '2026-27') {
-        // Affiche un bandeau d'avertissement si on utilise une saison passée
-        document.getElementById('champ-last-update').innerHTML =
-          '<span style="color:var(--amber);"><i class="ti ti-alert-triangle"></i> Données 2026–27 indisponibles — affichage de la saison ' + foundSeason + '</span>';
-      }
-      const standings = computeStandingsFromFixtures(ofbJson.matches || []);
+    if (info.src === 'sofa') {
+      // SofaScore API — temps réel, sans clé, toutes saisons
+      const srSeasons = await fetch(
+        `https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + info.ssId + '/seasons')}`
+      );
+      if (!srSeasons.ok) throw new Error('Erreur saisons SofaScore');
+      const srSeasonData = await srSeasons.json();
+      const ssList = srSeasonData?.seasons || [];
+      if (!ssList.length) throw new Error('Aucune saison disponible');
+      const targetSeason = ssList.find(s => s.year === '26/27') || ssList[0];
+      const srStandings = await fetch(
+        `https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + info.ssId + '/season/' + targetSeason.id + '/standings/total')}`
+      );
+      if (!srStandings.ok) throw new Error('Erreur classement SofaScore');
+      const srData = await srStandings.json();
+      const rows = srData?.standings?.[0]?.rows;
+      if (!rows?.length) throw new Error('Classement indisponible');
+      normalized = rows.map(r => ({
+        rank: r.position,
+        team: { name: r.team.name, logo: `https://api.sofascore.com/api/v1/team/${r.team.id}/image` },
+        all:  { played: r.matches, win: r.wins, draw: r.draws, lose: r.losses },
+        goalsDiff: r.scoresFor - r.scoresAgainst,
+        points: r.points,
+        form: ''
+      }));
+
       if (!standings.length) throw new Error('Saison non encore commencée');
       normalized = standings.map((t, i) => ({
         rank: i + 1,
@@ -1871,25 +1832,6 @@ async function loadLeague(id, forceRefresh = false) {
         goalsDiff: t.gf - t.ga,
         points: t.points,
         form: ''
-      }));
-    } else {
-      // football-data.org via corsproxy
-      const fdUrl = `https://api.football-data.org/v4/competitions/${info.fdCode}/standings`;
-      const res = await fetch(
-        `https://corsproxy.io/?${encodeURIComponent(fdUrl)}`,
-        { headers: { 'X-Auth-Token': FD_KEY } }
-      );
-      if (!res.ok) throw new Error('Erreur HTTP ' + res.status);
-      const json = await res.json();
-      const table = json?.standings?.[0]?.table;
-      if (!table) throw new Error('Données indisponibles');
-      normalized = table.map(t => ({
-        rank: t.position,
-        team: { name: t.team.name, logo: t.team.crest },
-        all:  { played: t.playedGames, win: t.won, draw: t.draw, lose: t.lost },
-        goalsDiff: t.goalDifference,
-        points: t.points,
-        form: t.form || ''
       }));
     }
 
@@ -1908,7 +1850,7 @@ async function loadLeague(id, forceRefresh = false) {
     const upd = document.getElementById('champ-last-update');
     if (upd) {
       const t = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-      upd.textContent = 'Actualisé à ' + t + ' · football-data.org';
+      upd.textContent = 'Actualisé à ' + t + ' · SofaScore';
     }
   }
 }
@@ -2021,15 +1963,15 @@ function renderStandings(standings, id) {
 // ── DUELS ──────────────────────────────────────────────────────────
 // Mapping championnat -> infos API pour les fixtures
 const FIXTURE_SOURCES = {
-  'Premier League': { src: 'fd',   fdCode: 'PL',  color: '#3d0063' },
-  'Liga':           { src: 'fd',   fdCode: 'PD',  color: '#ee7203' },
-  'Serie A':        { src: 'fd',   fdCode: 'SA',  color: '#0066b2' },
-  'Bundesliga':     { src: 'fd',   fdCode: 'BL1', color: '#d00027' },
-  'Ligue 1':        { src: 'fd',   fdCode: 'FL1', color: '#e21024' },
-  'Championship':    { src: 'fd',  fdCode: 'ELC',                                         color: '#5a2d82' },
-  'Ligue 2':         { src: 'ofb', ofbFile: 'fr.2.json', color: '#c8922a' },
-  'League Two':      { src: 'ofb', ofbFile: 'en.4.json', color: '#1a6b3c' },
-  'Segunda División':{ src: 'ofb', ofbFile: 'es.2.json', color: '#e86c00' }
+  'Premier League': { src: 'sofa', ssId: 17,  color: '#3d0063' },
+  'Liga':           { src: 'sofa', ssId: 8,   color: '#ee7203' },
+  'Serie A':        { src: 'sofa', ssId: 23,  color: '#0066b2' },
+  'Bundesliga':     { src: 'sofa', ssId: 35,  color: '#d00027' },
+  'Ligue 1':        { src: 'sofa', ssId: 34,  color: '#e21024' },
+  'Championship':   { src: 'sofa', ssId: 8,   color: '#5a2d82' },
+  'Ligue 2':         { src: 'sofa', ssId: 182, color: '#c8922a' },
+  'League Two':      { src: 'sofa', ssId: 10,  color: '#1a6b3c' },
+  'Segunda División':{ src: 'sofa', ssId: 54,  color: '#e86c00' }
 };
 
 let duelsCache = {}; // { league: { matches, timestamp } }
@@ -2064,50 +2006,27 @@ function findOwner(apiTeamName) {
   return null;
 }
 
-async function fetchFixturesFD(fdCode) {
-  const url = `https://api.football-data.org/v4/competitions/${fdCode}/matches?season=2026`;
-  const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
-    headers: { 'X-Auth-Token': FD_KEY }
-  });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
-  return (json.matches || []).map(m => ({
-    id: m.id,
-    date: m.utcDate ? new Date(m.utcDate) : null,
-    matchday: m.matchday,
-    home: { name: m.homeTeam.name, logo: '' },
-    away: { name: m.awayTeam.name, logo: '' },
-    status: m.status, // SCHEDULED, LIVE, IN_PLAY, PAUSED, FINISHED, POSTPONED
-    scoreHome: m.score?.fullTime?.home,
-    scoreAway: m.score?.fullTime?.away,
-  }));
-}
 
-async function fetchFixturesOFB(ofbFile) {
-  const seasons = ['2025-26', '2024-25'];
-  let json = null;
-  for (const s of seasons) {
-    const url = `https://raw.githubusercontent.com/openfootball/football.json/master/${s}/${ofbFile}`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (!text || text.trim() === '') continue;
-      json = JSON.parse(text);
-      if (json?.matches?.length) break;
-    } catch(e) { continue; }
-  }
-  if (!json) throw new Error('Données indisponibles');
-  let idx = 0;
-  return (json.matches || []).map(m => ({
-    id: idx++,
-    date: m.date ? new Date(m.date + 'T15:00:00') : null,
-    matchday: m.round ? parseInt(m.round.replace(/\D/g,'')) : null,
-    home: { name: m.team1, logo: '' },
-    away: { name: m.team2, logo: '' },
-    status: m.score?.ft !== undefined ? 'FINISHED' : 'SCHEDULED',
-    scoreHome: m.score?.ft?.[0] ?? null,
-    scoreAway: m.score?.ft?.[1] ?? null,
+
+async function fetchFixturesSofa(ssId) {
+  const srSeasons = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/seasons')}`);
+  if (!srSeasons.ok) throw new Error('Erreur saisons');
+  const srSeasonData = await srSeasons.json();
+  const seasons = srSeasonData?.seasons || [];
+  const targetSeason = seasons.find(s => s.year === '26/27') || seasons[0];
+  if (!targetSeason) throw new Error('Aucune saison');
+  const srEvents = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://api.sofascore.com/api/v1/unique-tournament/' + ssId + '/season/' + targetSeason.id + '/events/last/0')}`);
+  if (!srEvents.ok) throw new Error('Erreur fixtures');
+  const json = await srEvents.json();
+  return (json.events || []).map(e => ({
+    id: e.id,
+    date: e.startTimestamp ? new Date(e.startTimestamp * 1000) : null,
+    matchday: e.roundInfo?.round || null,
+    home: { name: e.homeTeam.name, logo: `https://api.sofascore.com/api/v1/team/${e.homeTeam.id}/image` },
+    away: { name: e.awayTeam.name, logo: `https://api.sofascore.com/api/v1/team/${e.awayTeam.id}/image` },
+    status: e.status?.type === 'finished' ? 'FINISHED' : 'SCHEDULED',
+    scoreHome: e.homeScore?.current ?? null,
+    scoreAway: e.awayScore?.current ?? null,
   }));
 }
 
@@ -2149,9 +2068,9 @@ async function loadDuels(forceRefresh = false) {
       document.getElementById('duels-status').textContent = 'Chargement ' + league + '...';
       let matches;
       if (src.src === 'fd') {
-        matches = await fetchFixturesFD(src.fdCode);
+        matches = await fetchFixturesSofa(src.ssId);
       } else {
-        matches = await fetchFixturesOFB(src.ofbFile);
+        matches = await fetchFixturesSofa(src.ssId);
       }
       duelsCache[league] = { matches, timestamp: Date.now() };
       loaded++;
