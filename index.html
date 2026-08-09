@@ -1112,7 +1112,8 @@ async function syncFromAPI() {
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
   // Sources pour tous les championnats supportés
-  const SOFA_ALL_SYNC = { 'Premier League':17, 'Liga':8, 'Serie A':23, 'Bundesliga':35, 'Ligue 1':34, 'Championship':8, 'Ligue 2':182, 'League Two':10, 'Segunda División':54 };
+  const FD_LEAGUES_SYNC  = { 'Premier League':'PL', 'Liga':'PD', 'Serie A':'SA', 'Bundesliga':'BL1', 'Ligue 1':'FL1', 'Championship':'ELC' };
+  const TSDB_LEAGUES_SYNC = { 'Ligue 2':'4401', 'League Two':'4397', 'Segunda División':'4335' };
   const SOFA_LEAGUES_SYNC = { 'Ligue 2': 182, 'League Two': 10, 'Segunda División': 54 };
   const OFB_SEASONS = ['2025-26', '2024-25'];
   const FD_EXTRA = { 'Championship': 'ELC' };
@@ -1129,20 +1130,38 @@ async function syncFromAPI() {
 
   for (const league of leaguesNeeded) {
     try {
-      if (SOFA_ALL_SYNC[league]) {
-        // SofaScore API — temps réel, toutes saisons
+      if (FD_LEAGUES_SYNC[league]) {
         try {
-          const ssId = SOFA_ALL_SYNC[league];
-          const syncSeasonId = await getSofaSeasonId(ssId);
-          const srData = await sofaFetch(
-            `https://api.sofascore.com/api/v1/unique-tournament/${ssId}/season/${syncSeasonId}/standings/total`
-          );
-          const rows = srData?.standings?.[0]?.rows;
-          if (rows?.length) {
-            standingsCache[league] = rows.map(r => ({
-              name: r.team.name, points: r.points, position: r.position
-            }));
-          } else { errors++; }
+          const fdUrl = 'https://api.football-data.org/v4/competitions/' + FD_LEAGUES_SYNC[league] + '/standings';
+          const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fdUrl), {
+            headers: { 'X-Auth-Token': FD_KEY }
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const table = json?.standings?.[0]?.table;
+            if (table) {
+              standingsCache[league] = table.map(t => ({ name: t.team.name, points: t.points, position: t.position }));
+            } else errors++;
+          } else errors++;
+        } catch(e) { errors++; }
+      } else if (TSDB_LEAGUES_SYNC[league]) {
+        try {
+          const tsdbId = TSDB_LEAGUES_SYNC[league];
+          const seasons = ['2026-2027', '2025-2026'];
+          let done = false;
+          for (const s of seasons) {
+            const url = 'https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l=' + tsdbId + '&s=' + s;
+            const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
+            if (!res.ok) continue;
+            const text = await res.text();
+            if (!text || text.trim() === 'null' || text.trim() === '') continue;
+            const json = JSON.parse(text);
+            if (json?.table?.length) {
+              standingsCache[league] = json.table.map(t => ({ name: t.strTeam, points: parseInt(t.intPoints)||0, position: parseInt(t.intRank)||0 }));
+              done = true; break;
+            }
+          }
+          if (!done) errors++;
         } catch(e) { errors++; }
       }
       // Championnat non reconnu — on ignore silencieusement
@@ -1697,19 +1716,20 @@ window.addEventListener('appinstalled', () => {
 // IDs SofaScore pour tous les championnats
 const LEAGUE_INFO = {
   // Toutes les ligues — source unique: SofaScore
-  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, ssId: 17,  src: 'sofa' },
-  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, ssId: 8,   src: 'sofa' },
-  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, ssId: 23,  src: 'sofa' },
-  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, ssId: 35,  src: 'sofa' },
-  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, ssId: 34,  src: 'sofa' },
-  // Divisions inférieures
-  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, ssId: 8,   src: 'sofa' },
-  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, ssId: 182,  src: 'sofa' },
-  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, ssId: 10,   src: 'sofa' },
-  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, ssId: 54,   src: 'sofa' }
+  // 5 grands — football-data.org
+  39:   { name: 'Premier League',  flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PL',   src: 'fd' },
+  140:  { name: 'Liga',            flag: '🇪🇸', ucl: 4, uel: 5, uecl: 6, rel: 18, fdCode: 'PD',   src: 'fd' },
+  135:  { name: 'Serie A',         flag: '🇮🇹', ucl: 4, uel: 5, uecl: 7, rel: 18, fdCode: 'SA',   src: 'fd' },
+  78:   { name: 'Bundesliga',      flag: '🇩🇪', ucl: 4, uel: 5, uecl: 6, rel: 16, fdCode: 'BL1',  src: 'fd' },
+  61:   { name: 'Ligue 1',         flag: '🇫🇷', ucl: 3, uel: 4, uecl: 5, rel: 16, fdCode: 'FL1',  src: 'fd' },
+  // Divisions inférieures — football-data.org (Championship) + TheSportsDB
+  2016: { name: 'Championship',    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 22, proZone: 2, playoffZone: 6, fdCode: 'ELC',  src: 'fd'   },
+  66:   { name: 'Ligue 2',         flag: '🇫🇷', rel: 18, proZone: 3, playoffZone: 3, tsdbId: '4401', src: 'tsdb' },
+  67:   { name: 'League Two',      flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', rel: 23, proZone: 3, playoffZone: 7, tsdbId: '4397', src: 'tsdb' },
+  141:  { name: 'Segunda División', flag: '🇪🇸', rel: 18, proZone: 2, playoffZone: 6, tsdbId: '4335', src: 'tsdb' }
 };
 // Clé football-data.org conservée pour compatibilité (non utilisée)
-const FD_KEY = 'fbfc6d2f367e4a8f9cdbd723e480485a';
+// Clé football-data.org
 
 let currentLeague = 39;
 let leagueCache = {}; // { leagueId: { data, timestamp } }
@@ -1733,15 +1753,12 @@ function getPlayerClubNames() {
   });
   return map;
 }
-
-// Matching strict : correspondance exacte ou inclusion complète uniquement
 function matchesPlayerClub(apiName, playerMap) {
   const api = apiName.toLowerCase().trim();
   for (const n of playerMap.keys()) {
     // 1. Correspondance exacte
     if (api === n) return true;
-    // 2. Le nom fantasy est entièrement contenu dans le nom API (ex: "PSG" dans "Paris Saint-Germain")
-    //    mais on vérifie que c'est un mot complet, pas juste un fragment
+    // 2. Le nom fantasy est entièrement contenu dans le nom API
     if (api.includes(n) && n.length >= 5) {
       const idx = api.indexOf(n);
       const before = idx === 0 || api[idx-1] === ' ';
@@ -1793,21 +1810,47 @@ async function loadLeague(id, forceRefresh = false) {
     const info = LEAGUE_INFO[id];
     let normalized = [];
 
-    if (info.src === 'sofa') {
-      // SofaScore API — temps réel, sans clé, toutes saisons
-      const ssSeasonId = await getSofaSeasonId(info.ssId);
-      const srData = await sofaFetch(
-        `https://api.sofascore.com/api/v1/unique-tournament/${info.ssId}/season/${ssSeasonId}/standings/total`
-      );
-      const rows = srData?.standings?.[0]?.rows;
-      if (!rows?.length) throw new Error('Classement indisponible');
-      normalized = rows.map(r => ({
-        rank: r.position,
-        team: { name: r.team.name, logo: `https://api.sofascore.com/api/v1/team/${r.team.id}/image` },
-        all:  { played: r.matches, win: r.wins, draw: r.draws, lose: r.losses },
-        goalsDiff: r.scoresFor - r.scoresAgainst,
-        points: r.points,
-        form: ''
+    if (info.src === 'fd') {
+      // football-data.org via corsproxy
+      const fdUrl = `https://api.football-data.org/v4/competitions/${info.fdCode}/standings`;
+      const fdRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(fdUrl)}`, {
+        headers: { 'X-Auth-Token': FD_KEY }
+      });
+      if (!fdRes.ok) throw new Error('Erreur HTTP ' + fdRes.status);
+      const fdJson = await fdRes.json();
+      const table = fdJson?.standings?.[0]?.table;
+      if (!table) throw new Error('Données indisponibles');
+      normalized = table.map(t => ({
+        rank: t.position,
+        team: { name: t.team.name, logo: t.team.crest },
+        all:  { played: t.playedGames, win: t.won, draw: t.draw, lose: t.lost },
+        goalsDiff: t.goalDifference,
+        points: t.points,
+        form: t.form || ''
+      }));
+    } else if (info.src === 'tsdb') {
+      // TheSportsDB clé 3 — classement complet, avec fallback saison
+      const seasons = ['2026-2027', '2025-2026'];
+      let tsdbTable = null;
+      for (const s of seasons) {
+        const url = `https://www.thesportsdb.com/api/v1/json/3/lookuptable.php?l=${info.tsdbId}&s=${s}`;
+        try {
+          const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (!text || text.trim() === '' || text.trim() === 'null') continue;
+          const json = JSON.parse(text);
+          if (json?.table?.length) { tsdbTable = json.table; break; }
+        } catch(e) { continue; }
+      }
+      if (!tsdbTable) throw new Error('Données indisponibles — saison pas encore commencée');
+      normalized = tsdbTable.map(t => ({
+        rank: parseInt(t.intRank),
+        team: { name: t.strTeam, logo: t.strBadge || '' },
+        all:  { played: parseInt(t.intPlayed)||0, win: parseInt(t.intWin)||0, draw: parseInt(t.intDraw)||0, lose: parseInt(t.intLoss)||0 },
+        goalsDiff: parseInt(t.intGoalDifference)||0,
+        points: parseInt(t.intPoints)||0,
+        form: t.strForm || ''
       }));
 
       if (!standings.length) throw new Error('Saison non encore commencée');
@@ -1948,17 +1991,7 @@ function renderStandings(standings, id) {
 
 // ── DUELS ──────────────────────────────────────────────────────────
 // Mapping championnat -> infos API pour les fixtures
-const FIXTURE_SOURCES = {
-  'Premier League': { src: 'sofa', ssId: 17,  color: '#3d0063' },
-  'Liga':           { src: 'sofa', ssId: 8,   color: '#ee7203' },
-  'Serie A':        { src: 'sofa', ssId: 23,  color: '#0066b2' },
-  'Bundesliga':     { src: 'sofa', ssId: 35,  color: '#d00027' },
-  'Ligue 1':        { src: 'sofa', ssId: 34,  color: '#e21024' },
-  'Championship':   { src: 'sofa', ssId: 8,   color: '#5a2d82' },
-  'Ligue 2':         { src: 'sofa', ssId: 182, color: '#c8922a' },
-  'League Two':      { src: 'sofa', ssId: 10,  color: '#1a6b3c' },
-  'Segunda División':{ src: 'sofa', ssId: 54,  color: '#e86c00' }
-};
+// FIXTURE_SOURCES defined below
 
 let duelsCache = {}; // { league: { matches, timestamp } }
 let duelsFilter = 'all'; // 'all', 'upcoming', 'past', or league name
@@ -1994,17 +2027,16 @@ function findOwner(apiTeamName) {
 
 
 
-// IDs de saison 26/27 hardcodés pour éviter le premier appel CORS /seasons
-const SOFA_SEASON_IDS = {
-  17: 96668,   // Premier League 26/27
-  8:  96914,   // Liga 26/27
-  23: 96949,   // Serie A 26/27
-  35: 96885,   // Bundesliga 26/27
-  34: 96791,   // Ligue 1 26/27
-  8:  96914,   // Championship (même ID Liga - à corriger si différent)
-  182: 97012,  // Ligue 2 26/27
-  10: 96993,   // League Two 26/27
-  54: 96932,   // Segunda División 26/27
+const FIXTURE_SOURCES = {
+  'Premier League': { src: 'fd',   fdCode: 'PL',  color: '#3d0063' },
+  'Liga':           { src: 'fd',   fdCode: 'PD',  color: '#ee7203' },
+  'Serie A':        { src: 'fd',   fdCode: 'SA',  color: '#0066b2' },
+  'Bundesliga':     { src: 'fd',   fdCode: 'BL1', color: '#d00027' },
+  'Ligue 1':        { src: 'fd',   fdCode: 'FL1', color: '#e21024' },
+  'Championship':   { src: 'fd',   fdCode: 'ELC', color: '#5a2d82' },
+  'Ligue 2':        { src: 'tsdb', tsdbId: '4401', color: '#c8922a' },
+  'League Two':     { src: 'tsdb', tsdbId: '4397', color: '#1a6b3c' },
+  'Segunda División':{ src: 'tsdb', tsdbId: '4335', color: '#e86c00' }
 };
 
 // Proxies en cascade pour SofaScore
@@ -2090,9 +2122,9 @@ async function loadDuels(forceRefresh = false) {
       document.getElementById('duels-status').textContent = 'Chargement ' + league + '...';
       let matches;
       if (src.src === 'fd') {
-        matches = await fetchFixturesSofa(src.ssId);
+        matches = src.src === 'fd' ? await fetchFixturesFD(src.fdCode) : await fetchFixturesTSDB(src.tsdbId);
       } else {
-        matches = await fetchFixturesSofa(src.ssId);
+        matches = src.src === 'fd' ? await fetchFixturesFD(src.fdCode) : await fetchFixturesTSDB(src.tsdbId);
       }
       duelsCache[league] = { matches, timestamp: Date.now() };
       loaded++;
