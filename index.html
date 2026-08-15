@@ -1139,7 +1139,7 @@ async function syncFromAPI() {
     // 5 grands
     'Premier League':'eng.1', 'Liga':'esp.1', 'Serie A':'ita.1', 'Bundesliga':'ger.1', 'Ligue 1':'fra.1',
     // Divisions inférieures des 5 grands
-    'Championship':'eng.2', 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2',
+    'Championship':'eng.2', 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2', 'Segunda Division':'esp.2',
     // Championnats club d'or courants
     'Liga Portugal':'por.1', 'Primeira Liga':'por.1',
     'Eredivisie':'ned.1', 'Pro League':'bel.1', 'Belgian Pro League':'bel.1',
@@ -1158,17 +1158,31 @@ async function syncFromAPI() {
   // Collecter tous les championnats nécessaires (clubs + clubs d'or)
   const leaguesNeeded = new Set();
   players.forEach(p => {
-    (p.clubs||[]).forEach(c => { if (c.league) leaguesNeeded.add(c.league); });
-    if (p.goldClub?.league) leaguesNeeded.add(p.goldClub.league);
+    (p.clubs||[]).forEach(c => { if (c.league) leaguesNeeded.add(c.league.trim()); });
+    if (p.goldClub?.league) leaguesNeeded.add(p.goldClub.league.trim());
+  });
+
+  // Normalise les accents pour la comparaison (ex: "Segunda Division" = "Segunda División")
+  function normalizeLeague(str) {
+    return str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  }
+  const ESPN_ALL_SYNC_NORMALIZED = {};
+  Object.entries(ESPN_ALL_SYNC).forEach(([k, v]) => {
+    ESPN_ALL_SYNC_NORMALIZED[normalizeLeague(k)] = v;
   });
 
   for (const league of leaguesNeeded) {
     try {
-      if (ESPN_ALL_SYNC[league]) {
+      const espnSlug = ESPN_ALL_SYNC[league.trim()] || ESPN_ALL_SYNC_NORMALIZED[normalizeLeague(league.trim())];
+      if (espnSlug) {
         try {
-          const rows = await fetchStandingsESPN(ESPN_ALL_SYNC[league]);
-          standingsCache[league] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank }));
-        } catch(e) { errors++; }
+          const rows = await fetchStandingsESPN(espnSlug);
+          standingsCache[league.trim()] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank }));
+          // Debug : log les noms ESPN pour League Two et Segunda
+          if (league === 'League Two' || league === 'Segunda División') {
+            console.log('ESPN ' + league + ' teams:', rows.map(r => r.team.name).join(', '));
+          }
+        } catch(e) { errors++; console.warn('ESPN error ' + league, e); }
       }
       // Championnat non reconnu — on ignore silencieusement
     } catch(e) {
@@ -1221,7 +1235,7 @@ async function syncFromAPI() {
   // Mettre à jour les clubs des 5 grands
   players.forEach(p => {
     (p.clubs||[]).forEach(c => {
-      const table = standingsCache[c.league];
+      const table = standingsCache[c.league?.trim()];
       const found = findInTable(table, c.name);
       if (found) {
         c.pts  = found.points;
@@ -1234,8 +1248,10 @@ async function syncFromAPI() {
     });
     // Mettre à jour le club d'or
     if (p.goldClub?.name && p.goldClub?.league) {
-      const table = standingsCache[p.goldClub.league];
+      const table = standingsCache[p.goldClub.league.trim()];
+      console.log('Gold club:', p.goldClub.name, '| League:', p.goldClub.league, '| Table found:', !!table, '| Table size:', table?.length);
       const found = findInTable(table, p.goldClub.name);
+      console.log('Match result:', found ? found.name + ' pts:' + found.points : 'NOT FOUND');
       if (found) {
         p.goldClub.pts  = found.points;
         p.goldClub.rank = String(found.position);
@@ -1243,6 +1259,9 @@ async function syncFromAPI() {
       } else if (table) {
         errors++;
         notFound.push(p.goldClub.name + ' (' + p.goldClub.league + ')');
+      } else {
+        errors++;
+        notFound.push(p.goldClub.name + ' [pas de table pour "' + p.goldClub.league + '"]');
       }
     }
   });
