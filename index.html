@@ -979,33 +979,20 @@ function renderMAJ() {
         ? '<i class="ti ti-star" style="font-size:14px;color:var(--gold);flex-shrink:0;"></i>'
         : '<div class="league-pip" style="background:' + (LEAGUE_COLORS[c.league]||'#888') + ';"></div>';
 
-      if (c.isGold) {
-        // Club d'or : inputs éditables manuellement
-        return '<div class="maj-club-row" style="background:var(--gold-light);">'
-          + '<div class="maj-club-info">' + pip
-          + '<div><div class="maj-club-name">' + c.name + ' <span style="font-size:10px;color:var(--gold-dim);font-weight:600;">MANUEL</span></div>'
-          + '<div class="maj-club-league">' + c.league + '</div></div></div>'
-          + '<div class="field-wrap"><div class="field-label">Pts bruts</div>'
-          + '<input class="maj-input" type="number" min="0" max="300" id="pts-' + pi + '-' + ci + '" value="' + (c.pts||0) + '" oninput="onMajInput(' + pi + ',' + ci + ')" onchange="onMajInput(' + pi + ',' + ci + ')"/></div>'
-          + '<div class="field-wrap"><div class="field-label">Classement</div>'
-          + '<input class="maj-input" type="number" min="1" max="30" id="rank-' + pi + '-' + ci + '" value="' + (c.rank||'') + '" placeholder="—" oninput="onMajInput(' + pi + ',' + ci + ')" onchange="onMajInput(' + pi + ',' + ci + ')"/></div>'
-          + '<div class="field-wrap"><div class="field-label">Modif.</div>'
-          + '<div class="mod-preview mod-tag ' + modCls + '" id="mod-' + pi + '-' + ci + '">' + modLabel + '</div></div>'
-          + '</div>';
-      } else {
-        // Club des 5 grands : lecture seule, mis à jour par l'API
-        return '<div class="maj-club-row">'
-          + '<div class="maj-club-info">' + pip
-          + '<div><div class="maj-club-name">' + c.name + '</div>'
-          + '<div class="maj-club-league">' + c.league + '</div></div></div>'
-          + '<div class="field-wrap"><div class="field-label">Pts bruts</div>'
-          + '<div class="maj-input-ro" id="pts-ro-' + pi + '-' + ci + '">' + (c.pts||0) + '</div></div>'
-          + '<div class="field-wrap"><div class="field-label">Classement</div>'
-          + '<div class="maj-input-ro" id="rank-ro-' + pi + '-' + ci + '">' + (c.rank||'—') + '</div></div>'
-          + '<div class="field-wrap"><div class="field-label">Modif.</div>'
-          + '<div class="mod-preview mod-tag ' + modCls + '" id="mod-' + pi + '-' + ci + '">' + modLabel + '</div></div>'
-          + '</div>';
-      }
+      // Tous les clubs : lecture seule, mis à jour par Sync auto
+      const bgStyle = c.isGold ? ' style="background:var(--gold-light);"' : '';
+      const nameTag = c.isGold ? ' <span style="font-size:10px;color:var(--gold-dim);font-weight:600;">★ AUTO</span>' : '';
+      return '<div class="maj-club-row"' + bgStyle + '>'
+        + '<div class="maj-club-info">' + pip
+        + '<div><div class="maj-club-name">' + c.name + nameTag + '</div>'
+        + '<div class="maj-club-league">' + c.league + '</div></div></div>'
+        + '<div class="field-wrap"><div class="field-label">Pts bruts</div>'
+        + '<div class="maj-input-ro" id="pts-ro-' + pi + '-' + ci + '">' + (c.pts||0) + '</div></div>'
+        + '<div class="field-wrap"><div class="field-label">Classement</div>'
+        + '<div class="maj-input-ro" id="rank-ro-' + pi + '-' + ci + '">' + (c.rank||'—') + '</div></div>'
+        + '<div class="field-wrap"><div class="field-label">Modif.</div>'
+        + '<div class="mod-preview mod-tag ' + modCls + '" id="mod-' + pi + '-' + ci + '">' + modLabel + '</div></div>'
+        + '</div>';
     }).join('');
 
     return '<div class="maj-player-block" id="maj-block-' + pi + '">'
@@ -1051,16 +1038,7 @@ function onMajInput(pi, ci) {
 }
 
 async function saveAllMAJ() {
-  // Sauvegarder uniquement le club d'or (les 5 grands sont mis à jour par l'API)
-  players.forEach((p, pi) => {
-    if (!p.goldClub) return;
-    const all = [...(p.clubs||[]), p.goldClub];
-    const goldIdx = all.length - 1;
-    const ptsEl  = document.getElementById('pts-' + pi + '-' + goldIdx);
-    const rankEl = document.getElementById('rank-' + pi + '-' + goldIdx);
-    if (ptsEl)  p.goldClub.pts  = parseFloat(ptsEl.value) || 0;
-    if (rankEl) p.goldClub.rank = rankEl.value.trim();
-  });
+  // Tous les clubs mis à jour via Sync auto — rien à lire manuellement
 
   const now = new Date();
   cfg.lastSync = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})
@@ -1157,7 +1135,17 @@ async function syncFromAPI() {
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
   // Sources pour tous les championnats supportés
-  const ESPN_ALL_SYNC = { 'Premier League':'eng.1', 'Liga':'esp.1', 'Serie A':'ita.1', 'Bundesliga':'ger.1', 'Ligue 1':'fra.1', 'Championship':'eng.2', 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2' };
+  const ESPN_ALL_SYNC = {
+    // 5 grands
+    'Premier League':'eng.1', 'Liga':'esp.1', 'Serie A':'ita.1', 'Bundesliga':'ger.1', 'Ligue 1':'fra.1',
+    // Divisions inférieures des 5 grands
+    'Championship':'eng.2', 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2',
+    // Championnats club d'or courants
+    'Liga Portugal':'por.1', 'Primeira Liga':'por.1',
+    'Eredivisie':'ned.1', 'Pro League':'bel.1', 'Belgian Pro League':'bel.1',
+    'Scottish Premiership':'sco.1', 'Süper Lig':'tur.1',
+    'Scottish Championship':'sco.2', 'League One':'eng.3',
+  };
   const ESPN_LEAGUES_SYNC = { 'Ligue 2':'fra.2', 'League Two':'eng.4', 'Segunda División':'esp.2' };
   const SOFA_LEAGUES_SYNC = { 'Ligue 2': 182, 'League Two': 10, 'Segunda División': 54 };
   const OFB_SEASONS = ['2025-26', '2024-25'];
@@ -1165,6 +1153,7 @@ async function syncFromAPI() {
 
   const standingsCache = {}; // { leagueName: [ {name, points, position} ] }
   let synced = 0, errors = 0;
+  const notFound = [];
 
   // Collecter tous les championnats nécessaires (clubs + clubs d'or)
   const leaguesNeeded = new Set();
@@ -1193,23 +1182,38 @@ async function syncFromAPI() {
   function findInTable(table, clubName) {
     if (!table) return null;
     const cn = clubName.toLowerCase().trim();
-    // Exact
+
+    // Normalise : supprime préfixes courants (UD, FC, AS, RC, SC, AFC, CF...)
+    const strip = s => s.replace(/^(ud|fc|as|rc|sc|afc|cf|cd|ac|ss|us|bv|sv|vfb|vfl|tsg|rb|rcd|rca|fk|sk|hsc|nk|hnk|bsc|ksc|tsv|1\. fc|1\.fc)\s+/i, '').trim();
+    const cn2 = strip(cn);
+
+    // 1. Exact
     let found = table.find(t => t.name.toLowerCase() === cn);
     if (found) return found;
-    // Bidirectionnel strict
+
+    // 2. Exact après normalisation des préfixes
+    found = table.find(t => strip(t.name.toLowerCase()) === cn2);
+    if (found) return found;
+
+    // 3. Inclusion simple (ESPN peut retourner "Grimsby" pour "Grimsby Town" ou "UD Las Palmas" pour "Las Palmas")
     found = table.find(t => {
       const tn = t.name.toLowerCase().trim();
-      const tWords = tn.split(' ').filter(w => w.length > 2);
-      const cWords = cn.split(' ').filter(w => w.length > 2);
-      const allCinT = cWords.length > 0 && cWords.every(w => tWords.includes(w));
-      const allTinC = tWords.length > 0 && tWords.every(w => cWords.includes(w));
-      return allCinT && allTinC;
+      const tn2 = strip(tn);
+      return tn === cn || tn2 === cn || tn2 === cn2
+        || (tn.includes(cn) && cn.length >= 4)
+        || (cn.includes(tn) && tn.length >= 4)
+        || (tn2.includes(cn2) && cn2.length >= 4)
+        || (cn2.includes(tn2) && tn2.length >= 4);
     });
     if (found) return found;
-    // Inclusion (ex: "PSG" dans "Paris Saint-Germain")
+
+    // 4. Bidirectionnel sur les mots significatifs
     found = table.find(t => {
-      const tn = t.name.toLowerCase().trim();
-      return (tn.includes(cn) && cn.length >= 4) || (cn.includes(tn) && tn.length >= 4);
+      const tn2 = strip(t.name.toLowerCase().trim());
+      const tWords = tn2.split(' ').filter(w => w.length > 2);
+      const cWords = cn2.split(' ').filter(w => w.length > 2);
+      if (!tWords.length || !cWords.length) return false;
+      return cWords.every(w => tWords.includes(w)) || tWords.every(w => cWords.includes(w));
     });
     return found || null;
   }
@@ -1225,6 +1229,7 @@ async function syncFromAPI() {
         synced++;
       } else if (table) {
         errors++;
+        notFound.push(c.name);
       }
     });
     // Mettre à jour le club d'or
@@ -1237,6 +1242,7 @@ async function syncFromAPI() {
         synced++;
       } else if (table) {
         errors++;
+        notFound.push(p.goldClub.name + ' (' + p.goldClub.league + ')');
       }
     }
   });
@@ -1256,7 +1262,7 @@ async function syncFromAPI() {
     toast(synced + ' clubs mis à jour automatiquement !');
     setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
   } else {
-    toast(synced + ' clubs OK · ' + errors + ' non trouvé(s)', errors > synced ? 'err' : '');
+    toast(synced + ' clubs OK · Non trouvés : ' + notFound.join(', '), errors > synced ? 'err' : '');
   }
 }
 
