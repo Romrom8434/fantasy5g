@@ -2380,15 +2380,28 @@ const CAL_CACHE_DURATION = 30 * 60 * 1000;
 
 function getAllFantasyClubs() {
   const clubs = [];
+  // Normalize league name for lookup (trim + remove accents + lowercase)
+  function normLeague(str) {
+    return (str||'').trim().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  }
+  // Build normalized version of slug map
+  const slugMapNorm = {};
+  Object.entries(ESPN_SLUG_MAP_CAL).forEach(([k,v]) => { slugMapNorm[normLeague(k)] = v; });
+
+  function getSlug(league) {
+    if (!league) return null;
+    return ESPN_SLUG_MAP_CAL[league.trim()] || slugMapNorm[normLeague(league)] || null;
+  }
+
   players.forEach(p => {
     (p.clubs || []).forEach(c => {
       if (!c.name || !c.league) return;
-      const slug = ESPN_SLUG_MAP_CAL[c.league.trim()] || ESPN_SLUG_MAP_CAL[c.league.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')];
+      const slug = getSlug(c.league);
       if (!slug) return;
       clubs.push({ name: c.name, owner: p.name, league: c.league.trim(), espnSlug: slug, isGold: false });
     });
     if (p.goldClub?.name && p.goldClub?.league) {
-      const slug = ESPN_SLUG_MAP_CAL[p.goldClub.league.trim()] || ESPN_SLUG_MAP_CAL[p.goldClub.league.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')];
+      const slug = getSlug(p.goldClub.league);
       if (slug) clubs.push({ name: p.goldClub.name, owner: p.name, league: p.goldClub.league.trim(), espnSlug: slug, isGold: true });
     }
   });
