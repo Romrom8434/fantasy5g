@@ -426,7 +426,6 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   .duel-result{display:none;}
 }
 
-
 </style>
 </head>
 <body>
@@ -480,6 +479,7 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     <button class="nav-btn" onclick="goTab('joueurs')" data-tab="joueurs"><i class="ti ti-users"></i> Joueurs</button>
     <button class="nav-btn" onclick="goTab('championnats')" data-tab="championnats"><i class="ti ti-ball-football"></i> Championnats</button>
     <button class="nav-btn" onclick="goTab('duels')" data-tab="duels"><i class="ti ti-swords"></i> Duels</button>
+    <button class="nav-btn" onclick="goTab('maj')" data-tab="maj"><i class="ti ti-pencil"></i> MAJ hebdo</button>
     <button class="nav-btn" onclick="goTab('admin')" data-tab="admin"><i class="ti ti-settings-2"></i> Admin</button>
     <button class="nav-btn" onclick="goTab('regles')" data-tab="regles"><i class="ti ti-book"></i> Règles</button>
   </div>
@@ -640,7 +640,6 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
 </div>
 
 
-
 <!-- ── DUELS ── -->
 <div id="tab-duels" class="tab">
   <div class="duels-header">
@@ -656,8 +655,6 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   <div id="duels-status" class="duels-status"></div>
   <div id="duels-content"></div>
 </div>
-
-
 
 </div><!-- /page -->
 
@@ -734,10 +731,14 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
 
 <div class="toast" id="toast"></div>
 
-<script><script>
+<script>
 // ──────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ──────────────────────────────────────────────────────────────────
+const LEAGUE_COLORS = {
+  'Ligue 1':'#e21024','Premier League':'#3d0063',
+  'Liga':'#ee7203','Serie A':'#0066b2','Bundesliga':'#d00027'
+};
 const AVATARS = [
   {bg:'#EEEDFE',tx:'#3C3489'},{bg:'#E1F5EE',tx:'#085041'},
   {bg:'#FAECE7',tx:'#993C1D'},{bg:'#FBEAF0',tx:'#72243E'},
@@ -1129,8 +1130,6 @@ async function fetchStandingsESPN(espnSlug) {
   }).sort((a, b) => a.rank - b.rank);
 }
 
-
-
 async function syncFromAPI() {
   const icon = document.getElementById('api-sync-icon');
   if (icon) icon.className = 'ti ti-refresh spin-i';
@@ -1181,7 +1180,8 @@ async function syncFromAPI() {
           standingsCache[league.trim()] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank }));
           // Debug : log les noms ESPN pour League Two et Segunda
           if (league === 'League Two' || league === 'Segunda División') {
-                }
+            console.log('ESPN ' + league + ' teams:', rows.map(r => r.team.name).join(', '));
+          }
         } catch(e) { errors++; console.warn('ESPN error ' + league, e); }
       }
       // Championnat non reconnu — on ignore silencieusement
@@ -1249,7 +1249,9 @@ async function syncFromAPI() {
     // Mettre à jour le club d'or
     if (p.goldClub?.name && p.goldClub?.league) {
       const table = standingsCache[p.goldClub.league.trim()];
+      console.log('Gold club:', p.goldClub.name, '| League:', p.goldClub.league, '| Table found:', !!table, '| Table size:', table?.length);
       const found = findInTable(table, p.goldClub.name);
+      console.log('Match result:', found ? found.name + ' pts:' + found.points : 'NOT FOUND');
       if (found) {
         p.goldClub.pts  = found.points;
         p.goldClub.rank = String(found.position);
@@ -1275,11 +1277,12 @@ async function syncFromAPI() {
 
   if (icon) icon.className = 'ti ti-refresh';
 
-
-    if (errors === 0) {
-      toast(synced + ' clubs mis à jour automatiquement !');
-      setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
-  
+  if (errors === 0) {
+    toast(synced + ' clubs mis à jour automatiquement !');
+    setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
+  } else {
+    toast(synced + ' clubs OK · Non trouvés : ' + notFound.join(', '), errors > synced ? 'err' : '');
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -1701,8 +1704,6 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 init();
-
-// Sync auto au démarrage si données > 6h
 
 // ── SERVICE WORKER ────────────────────────────────────────────────
 let deferredPrompt = null;
@@ -2265,7 +2266,7 @@ function renderDuels(clubsByLeague, leagues) {
 
   container.innerHTML = html;
 }
-}
+
 </script>
 </body>
 </html>
