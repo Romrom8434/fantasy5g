@@ -1375,12 +1375,15 @@ async function fetchStandingsESPN(espnSlug) {
 
 // ── SYNC AUTO EN ARRIÈRE-PLAN (silencieuse) ───────────────────────
 async function autoSyncBackground() {
-  const spinner = document.getElementById('auto-sync-spinner');
-  if (spinner) spinner.style.display = 'inline-block';
   try {
-    await syncFromAPI(true); // true = mode silencieux
-  } catch(e) { /* silencieux */ }
-  if (spinner) spinner.style.display = 'none';
+    const spinner = document.getElementById('auto-sync-spinner');
+    if (spinner) spinner.style.display = 'inline-block';
+    await syncFromAPI(true);
+    if (spinner) spinner.style.display = 'none';
+  } catch(e) {
+    try { document.getElementById('auto-sync-spinner').style.display = 'none'; } catch(_) {}
+    /* silencieux — ne jamais bloquer l'app */
+  }
 }
 
 async function syncFromAPI(silent = false) {
@@ -1969,15 +1972,15 @@ init();
 
 // Sync auto au démarrage si données > 6h
 const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
-async function checkAutoSync() {
-  await new Promise(r => setTimeout(r, 2500)); // attend que jbLoad finisse
-  const lastSyncTs = cfg.lastSyncTs || 0;
-  if (Date.now() - lastSyncTs > SYNC_INTERVAL_MS) {
-    autoSyncBackground();
-  }
-}
-checkAutoSync();
-
+// Sync auto au démarrage — dans un setTimeout pour ne jamais bloquer l'app
+setTimeout(async () => {
+  try {
+    const lastSyncTs = cfg?.lastSyncTs || 0;
+    if (Date.now() - lastSyncTs > SYNC_INTERVAL_MS) {
+      await autoSyncBackground();
+    }
+  } catch(e) { /* silencieux */ }
+}, 4000);
 
 // ── SERVICE WORKER ────────────────────────────────────────────────
 let deferredPrompt = null;
