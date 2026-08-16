@@ -426,6 +426,31 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   .duel-result{display:none;}
 }
 
+
+/* ── BURGER MENU ── */
+.burger-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--ink);font-family:'Inter',sans-serif;text-align:left;transition:background .12s;}
+.burger-item:hover{background:var(--cream);}
+.burger-item i{font-size:18px;color:var(--pitch);}
+#auto-sync-spinner{display:none;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin-left:8px;vertical-align:middle;}
+
+/* ── CALENDRIER ── */
+.cal-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+.cal-filter-btn{background:var(--white);border:1px solid var(--line2);border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;font-weight:500;color:var(--ink3);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;}
+.cal-filter-btn:hover{border-color:var(--pitch);color:var(--pitch);}
+.cal-filter-btn.on{background:var(--pitch);color:var(--white);border-color:var(--pitch);}
+.cal-day-group{margin-bottom:1.25rem;}
+.cal-day-label{font-size:11px;font-weight:600;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid var(--line2);}
+.cal-match-row{display:grid;grid-template-columns:36px 55px 1fr auto 1fr auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line2);}
+.cal-match-row:last-child{border-bottom:none;}
+.cal-league-badge{font-size:9px;font-weight:700;color:var(--white);padding:2px 5px;border-radius:3px;text-align:center;white-space:nowrap;}
+.cal-time{font-size:11px;color:var(--ink3);white-space:nowrap;}
+.cal-team{font-size:12px;font-weight:500;color:var(--ink);}
+.cal-team.home{text-align:right;}
+.cal-score{font-size:13px;font-weight:700;color:var(--pitch);text-align:center;white-space:nowrap;font-family:'Syne',sans-serif;}
+.cal-owner{font-size:10px;color:var(--gold-dim);font-weight:600;white-space:nowrap;}
+.cal-empty{text-align:center;padding:3rem 1rem;color:var(--ink3);font-size:13px;}
+.cal-empty i{font-size:32px;display:block;margin-bottom:.75rem;opacity:.4;}
+@media(max-width:640px){.cal-match-row{grid-template-columns:28px 1fr auto 1fr;gap:4px;}.cal-time,.cal-owner{display:none;}}
 </style>
 </head>
 <body>
@@ -441,7 +466,7 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     </div>
     <div class="header-right">
       <span class="last-update" id="last-update-label"></span>
-      <button class="btn-header" onclick="openSettings()"><i class="ti ti-settings"></i> Paramètres</button>
+      <span id="auto-sync-spinner"></span><button class="btn-header" onclick="openSettings()"><i class="ti ti-settings"></i> Paramètres</button>
     </div>
   </div>
 </header>
@@ -479,9 +504,8 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     <button class="nav-btn" onclick="goTab('joueurs')" data-tab="joueurs"><i class="ti ti-users"></i> Joueurs</button>
     <button class="nav-btn" onclick="goTab('championnats')" data-tab="championnats"><i class="ti ti-ball-football"></i> Championnats</button>
     <button class="nav-btn" onclick="goTab('duels')" data-tab="duels"><i class="ti ti-swords"></i> Duels</button>
-    <button class="nav-btn" onclick="goTab('maj')" data-tab="maj"><i class="ti ti-pencil"></i> MAJ hebdo</button>
-    <button class="nav-btn" onclick="goTab('admin')" data-tab="admin"><i class="ti ti-settings-2"></i> Admin</button>
-    <button class="nav-btn" onclick="goTab('regles')" data-tab="regles"><i class="ti ti-book"></i> Règles</button>
+    <button class="nav-btn" onclick="goTab('calendrier')" data-tab="calendrier"><i class="ti ti-calendar"></i> Calendrier</button>
+    <button class="nav-btn" id="burger-btn" onclick="toggleBurger()" style="margin-left:auto;"><i class="ti ti-menu-2"></i></button>
   </div>
 </nav>
 
@@ -656,6 +680,35 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
   <div id="duels-content"></div>
 </div>
 
+
+<!-- BURGER MENU -->
+<div id="burger-menu" style="display:none;position:fixed;top:0;right:0;width:240px;height:100vh;background:var(--white);border-left:1px solid var(--line);z-index:1000;box-shadow:-4px 0 20px rgba(0,0,0,.1);padding:1rem 0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0 1rem 1rem;border-bottom:1px solid var(--line2);">
+    <span style="font-weight:700;font-size:15px;color:var(--pitch);">Menu</span>
+    <button onclick="toggleBurger()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);"><i class="ti ti-x"></i></button>
+  </div>
+  <button class="burger-item" onclick="goTab('maj');toggleBurger()"><i class="ti ti-pencil"></i> MAJ hebdo</button>
+  <button class="burger-item" onclick="goTab('admin');toggleBurger()"><i class="ti ti-settings"></i> Admin</button>
+  <button class="burger-item" onclick="goTab('regles');toggleBurger()"><i class="ti ti-info-circle"></i> Règles</button>
+</div>
+<div id="burger-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:999;" onclick="toggleBurger()"></div>
+
+<!-- ── CALENDRIER ── -->
+<div id="tab-calendrier" class="tab">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;">
+    <div>
+      <div class="maj-title">Calendrier Fantasy</div>
+      <div class="maj-sub">Tous les matchs de vos clubs, triés par date.</div>
+    </div>
+    <button class="btn-save-all" onclick="loadCalendrier(true)" id="cal-refresh-btn">
+      <i class="ti ti-refresh" id="cal-refresh-icon"></i> Actualiser
+    </button>
+  </div>
+  <div class="cal-filters" id="cal-filters"></div>
+  <div id="cal-status" class="duels-status"></div>
+  <div id="cal-content"></div>
+</div>
+
 </div><!-- /page -->
 
 <!-- BOTTOM NAV (mobile) -->
@@ -665,9 +718,8 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
     <button class="bnav-btn" onclick="goTab('joueurs')" data-tab="joueurs"        id="bn-joueurs"><i class="ti ti-users"></i>Joueurs</button>
     <button class="bnav-btn" onclick="goTab('championnats')" data-tab="championnats"   id="bn-championnats"><i class="ti ti-ball-football"></i>Ligues</button>
     <button class="bnav-btn" onclick="goTab('duels')" data-tab="duels" id="bn-duels"><i class="ti ti-swords"></i>Duels</button>
-    <button class="bnav-btn" onclick="goTab('maj')" data-tab="maj"            id="bn-maj"><i class="ti ti-pencil"></i>MAJ</button>
-    <button class="bnav-btn" onclick="goTab('admin')" data-tab="admin"          id="bn-admin"><i class="ti ti-settings-2"></i>Admin</button>
-    <button class="bnav-btn" onclick="goTab('regles')" data-tab="regles"         id="bn-regles"><i class="ti ti-book"></i>Règles</button>
+    <button class="bnav-btn" onclick="goTab('calendrier')" data-tab="calendrier" id="bn-calendrier"><i class="ti ti-calendar"></i>Calendrier</button>
+    <button class="bnav-btn" id="bn-burger" onclick="toggleBurger()"><i class="ti ti-menu-2"></i>Menu</button>
   </div>
 </nav>
 
@@ -732,6 +784,16 @@ code{font-size:10px;background:var(--grey-bg);padding:1px 5px;border-radius:4px;
 <div class="toast" id="toast"></div>
 
 <script>
+// ── BURGER MENU ───────────────────────────────────────────────────
+function toggleBurger() {
+  const menu = document.getElementById('burger-menu');
+  const overlay = document.getElementById('burger-overlay');
+  const open = menu.style.display === 'none' || !menu.style.display;
+  menu.style.display = open ? 'block' : 'none';
+  overlay.style.display = open ? 'block' : 'none';
+}
+
+
 // ──────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ──────────────────────────────────────────────────────────────────
@@ -1130,7 +1192,20 @@ async function fetchStandingsESPN(espnSlug) {
   }).sort((a, b) => a.rank - b.rank);
 }
 
-async function syncFromAPI() {
+
+// ── SYNC AUTO SILENCIEUSE ─────────────────────────────────────────
+async function autoSyncBackground() {
+  try {
+    const spinner = document.getElementById('auto-sync-spinner');
+    if (spinner) spinner.style.display = 'inline-block';
+    await syncFromAPI(true);
+    if (spinner) spinner.style.display = 'none';
+  } catch(e) {
+    try { document.getElementById('auto-sync-spinner').style.display = 'none'; } catch(_) {}
+  }
+}
+
+async function syncFromAPI(silent = false) {
   const icon = document.getElementById('api-sync-icon');
   if (icon) icon.className = 'ti ti-refresh spin-i';
 
@@ -1277,11 +1352,17 @@ async function syncFromAPI() {
 
   if (icon) icon.className = 'ti ti-refresh';
 
-  if (errors === 0) {
-    toast(synced + ' clubs mis à jour automatiquement !');
-    setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
+  cfg.lastSyncTs = Date.now();
+  saveLocal();
+  if (!silent) {
+    if (errors === 0) {
+      toast(synced + ' clubs mis à jour automatiquement !');
+      setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
+    } else {
+      toast(synced + ' clubs OK · Non trouvés : ' + notFound.join(', '), errors > synced ? 'err' : '');
+    }
   } else {
-    toast(synced + ' clubs OK · Non trouvés : ' + notFound.join(', '), errors > synced ? 'err' : '');
+    setJBStatus('ok', 'Sync auto · ' + cfg.lastSync);
   }
 }
 
@@ -1565,6 +1646,7 @@ function goTab(id) {
   if (id === 'maj')          renderMAJ();
   if (id === 'championnats') loadLeague(currentLeague);
   if (id === 'duels') loadDuels();
+  if (id === 'calendrier') loadCalendrier();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1704,6 +1786,16 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 init();
+
+// Sync auto si données > 6h
+const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
+setTimeout(async () => {
+  try {
+    if (Date.now() - (cfg.lastSyncTs || 0) > SYNC_INTERVAL_MS) {
+      await autoSyncBackground();
+    }
+  } catch(e) {}
+}, 4000);
 
 // ── SERVICE WORKER ────────────────────────────────────────────────
 let deferredPrompt = null;
@@ -2267,6 +2359,162 @@ function renderDuels(clubsByLeague, leagues) {
   container.innerHTML = html;
 }
 
+
+// ── CALENDRIER ────────────────────────────────────────────────────
+const LEAGUE_SHORTS = {
+  'Premier League':'PL','Liga':'ESP','Serie A':'SA','Bundesliga':'BL',
+  'Ligue 1':'L1','Championship':'CH','Ligue 2':'L2','League Two':'L4',
+  'Segunda División':'2A','Segunda Division':'2A'
+};
+
+const ESPN_SLUG_MAP_CAL = {
+  'Premier League':'eng.1','Liga':'esp.1','Serie A':'ita.1','Bundesliga':'ger.1','Ligue 1':'fra.1',
+  'Championship':'eng.2','Ligue 2':'fra.2','League Two':'eng.4','Segunda División':'esp.2','Segunda Division':'esp.2',
+  'League One':'eng.3','Liga Portugal':'por.1','Primeira Liga':'por.1','Eredivisie':'ned.1',
+  'Pro League':'bel.1','Belgian Pro League':'bel.1','Scottish Premiership':'sco.1','Süper Lig':'tur.1'
+};
+
+let calCache = {};
+let calFilter = 'all';
+const CAL_CACHE_DURATION = 30 * 60 * 1000;
+
+function getAllFantasyClubs() {
+  const clubs = [];
+  players.forEach(p => {
+    (p.clubs || []).forEach(c => {
+      if (!c.name || !c.league) return;
+      const slug = ESPN_SLUG_MAP_CAL[c.league.trim()] || ESPN_SLUG_MAP_CAL[c.league.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')];
+      if (!slug) return;
+      clubs.push({ name: c.name, owner: p.name, league: c.league.trim(), espnSlug: slug, isGold: false });
+    });
+    if (p.goldClub?.name && p.goldClub?.league) {
+      const slug = ESPN_SLUG_MAP_CAL[p.goldClub.league.trim()] || ESPN_SLUG_MAP_CAL[p.goldClub.league.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')];
+      if (slug) clubs.push({ name: p.goldClub.name, owner: p.name, league: p.goldClub.league.trim(), espnSlug: slug, isGold: true });
+    }
+  });
+  return clubs;
+}
+
+async function loadCalendrier(forceRefresh = false) {
+  if (!players.length) {
+    document.getElementById('cal-content').innerHTML = '<div class="cal-empty"><i class="ti ti-calendar"></i>Ajoute des joueurs pour voir le calendrier</div>';
+    return;
+  }
+  const icon = document.getElementById('cal-refresh-icon');
+  if (icon) icon.className = 'ti ti-refresh spin-i';
+  document.getElementById('cal-status').textContent = 'Chargement...';
+
+  const allClubs = getAllFantasyClubs();
+  const slugs = [...new Set(allClubs.map(c => c.espnSlug))];
+  const now = Date.now();
+
+  for (const slug of slugs) {
+    if (!forceRefresh && calCache[slug] && (now - calCache[slug].ts) < CAL_CACHE_DURATION) continue;
+    try {
+      document.getElementById('cal-status').textContent = 'Chargement ' + slug + '...';
+      const events = await fetchFixturesESPN(slug);
+      calCache[slug] = { events, ts: Date.now() };
+    } catch(e) { console.warn('Cal error', slug, e); }
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  renderCalendrier(allClubs);
+  renderCalFilters(allClubs);
+  if (icon) icon.className = 'ti ti-refresh';
+  const t = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  document.getElementById('cal-status').textContent = slugs.length + ' ligue(s) · ' + t;
+}
+
+function renderCalFilters(allClubs) {
+  const owners = [...new Set(allClubs.map(c => c.owner))];
+  const el = document.getElementById('cal-filters');
+  const filters = [
+    { key: 'all', label: 'Tous' },
+    { key: 'upcoming', label: '⏳ À venir' },
+    { key: 'past', label: '✓ Passés' },
+    ...owners.map(o => ({ key: 'owner:' + o, label: '★ ' + o }))
+  ];
+  el.innerHTML = filters.map(f =>
+    `<button class="cal-filter-btn ${calFilter === f.key ? 'on' : ''}" onclick="setCalFilter('${f.key}')">${f.label}</button>`
+  ).join('');
+}
+
+function setCalFilter(key) {
+  calFilter = key;
+  const allClubs = getAllFantasyClubs();
+  renderCalendrier(allClubs);
+  renderCalFilters(allClubs);
+}
+
+function renderCalendrier(allClubs) {
+  const container = document.getElementById('cal-content');
+  const now = new Date();
+  const allEvents = [];
+
+  allClubs.forEach(club => {
+    const cached = calCache[club.espnSlug];
+    if (!cached) return;
+    cached.events.forEach(ev => {
+      const isHome = matchesPlayerClub(ev.home.name, new Map([[club.name.toLowerCase(), [club.owner]]]));
+      const isAway = matchesPlayerClub(ev.away.name, new Map([[club.name.toLowerCase(), [club.owner]]]));
+      if (!isHome && !isAway) return;
+      allEvents.push({ ...ev, fantasyClub: club, isHome });
+    });
+  });
+
+  let filtered = allEvents;
+  if (calFilter === 'upcoming') filtered = allEvents.filter(e => e.status !== 'FINISHED');
+  if (calFilter === 'past')     filtered = allEvents.filter(e => e.status === 'FINISHED');
+  if (calFilter.startsWith('owner:')) {
+    const owner = calFilter.slice(6);
+    filtered = allEvents.filter(e => e.fantasyClub.owner === owner);
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="cal-empty"><i class="ti ti-calendar"></i>Aucun match trouvé</div>';
+    return;
+  }
+
+  filtered.sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return a.date - b.date;
+  });
+
+  const byDay = {};
+  filtered.forEach(ev => {
+    const key = ev.date
+      ? ev.date.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })
+      : 'Date inconnue';
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push(ev);
+  });
+
+  let html = '';
+  for (const [day, events] of Object.entries(byDay)) {
+    html += `<div class="cal-day-group"><div class="cal-day-label">${day}</div>`;
+    events.forEach(ev => {
+      const league = ev.fantasyClub.league;
+      const color = LEAGUE_COLORS[league] || '#888';
+      const short = LEAGUE_SHORTS[league] || league.slice(0,2).toUpperCase();
+      const timeStr = ev.date ? ev.date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '—';
+      const scoreOrTime = ev.status === 'FINISHED' && ev.scoreHome !== null
+        ? `${ev.scoreHome} – ${ev.scoreAway}` : timeStr;
+      const homeBold = ev.isHome ? 'font-weight:700;' : '';
+      const awayBold = !ev.isHome ? 'font-weight:700;' : '';
+      html += `<div class="cal-match-row">
+        <span class="cal-league-badge" style="background:${color};">${short}</span>
+        <span class="cal-time">${timeStr}</span>
+        <span class="cal-team home" style="${homeBold}">${ev.home.name}</span>
+        <span class="cal-score">${scoreOrTime}</span>
+        <span class="cal-team away" style="${awayBold}">${ev.away.name}</span>
+        <span class="cal-owner">★ ${ev.fantasyClub.owner}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
 </script>
 </body>
 </html>
