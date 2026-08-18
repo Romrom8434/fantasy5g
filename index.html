@@ -972,28 +972,13 @@ function renderClassement() {
     const allClubs = [...(p.clubs||[]), ...(p.goldClub ? [{...p.goldClub, isGold:true}] : [])];
     const totalPlayed = allClubs.reduce((acc, c) => acc + (parseInt(c.rank)||0), 0);
 
-    // Progress bars per club
-    const progressBars = allClubs.map(c => {
-      const played = parseInt(c.rank) || 0;
-      const pct = maxJournee > 0 ? Math.min(100, Math.round(played / maxJournee * 100)) : 0;
-      const league = c.league || '';
-      const short = LEAGUE_SHORTS_CL[league] || league.slice(0,2).toUpperCase();
-      const color = LEAGUE_COLORS_CL[league] || '#888';
-      const isGoldStyle = c.isGold ? 'outline:1px solid var(--gold);' : '';
-      return `<div class="pc-prog-row">
-        <span class="pc-prog-label" style="background:${color};${isGoldStyle}">${short}</span>
-        <div class="pc-prog-bar"><div class="pc-prog-fill" style="width:${pct}%;background:${color};"></div></div>
-        <span class="pc-prog-jn">J${played}</span>
-      </div>`;
-    }).join('');
-
     return `<div class="podium-row ${i===0?'rank1':''}">
       <div class="rank-badge ${rbClass[i]||'rbn'}">${i+1}</div>
       <div class="player-cell">
         <div class="ava" style="background:${av.bg};color:${av.tx};">${p.name.slice(0,2).toUpperCase()}</div>
         <div style="min-width:0;overflow:hidden;flex:1;">
           <div class="pc-name">${p.name}</div>
-          <div class="pc-progress">${progressBars}</div>
+          <div class="pc-clubs" style="font-size:10px;color:var(--ink3);margin-top:2px;">${totalPlayed} match${totalPlayed > 1 ? 's' : ''} joué${totalPlayed > 1 ? 's' : ''}</div>
         </div>
       </div>
       <div class="pts-cell pts-net"><div class="n">${p._net}</div><div class="l">nets</div></div>
