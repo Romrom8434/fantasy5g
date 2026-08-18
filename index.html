@@ -970,7 +970,7 @@ function renderClassement() {
   pod.innerHTML = sorted.map((p, i) => {
     const av = AVATARS[p._i % AVATARS.length];
     const allClubs = [...(p.clubs||[]), ...(p.goldClub ? [{...p.goldClub, isGold:true}] : [])];
-    const totalPlayed = allClubs.reduce((acc, c) => acc + (parseInt(c.rank)||0), 0);
+    const totalPlayed = allClubs.reduce((acc, c) => acc + (parseInt(c.played)||0), 0);
 
     return `<div class="podium-row ${i===0?'rank1':''}">
       <div class="rank-badge ${rbClass[i]||'rbn'}">${i+1}</div>
@@ -1206,6 +1206,7 @@ async function fetchStandingsESPN(espnSlug) {
       },
       goalsDiff: getStat(stats, 'pointDifferential') || getStat(stats, 'goalDifferential'),
       points: getStat(stats, 'points'),
+      played: getStat(stats, 'gamesPlayed'),
       form: ''
     };
   }).sort((a, b) => a.rank - b.rank);
@@ -1271,7 +1272,7 @@ async function syncFromAPI(silent = false) {
       if (espnSlug) {
         try {
           const rows = await fetchStandingsESPN(espnSlug);
-          standingsCache[league.trim()] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank }));
+          standingsCache[league.trim()] = rows.map(r => ({ name: r.team.name, points: r.points, position: r.rank, played: r.played || 0 }));
           // Debug : log les noms ESPN pour League Two et Segunda
           if (league === 'League Two' || league === 'Segunda División') {
             console.log('ESPN ' + league + ' teams:', rows.map(r => r.team.name).join(', '));
@@ -1332,8 +1333,9 @@ async function syncFromAPI(silent = false) {
       const table = standingsCache[c.league?.trim()];
       const found = findInTable(table, c.name);
       if (found) {
-        c.pts  = found.points;
-        c.rank = String(found.position);
+        c.pts    = found.points;
+        c.rank   = String(found.position);
+        c.played = found.played || 0;
         synced++;
       } else if (table) {
         errors++;
@@ -1347,8 +1349,9 @@ async function syncFromAPI(silent = false) {
       const found = findInTable(table, p.goldClub.name);
       console.log('Match result:', found ? found.name + ' pts:' + found.points : 'NOT FOUND');
       if (found) {
-        p.goldClub.pts  = found.points;
-        p.goldClub.rank = String(found.position);
+        p.goldClub.pts    = found.points;
+        p.goldClub.rank   = String(found.position);
+        p.goldClub.played = found.played || 0;
         synced++;
       } else if (table) {
         errors++;
