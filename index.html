@@ -2099,12 +2099,8 @@ function renderStandings(standings, id) {
 
 
 async function fetchFixturesESPN(espnSlug) {
-  // ESPN scoreboard avec plage de dates couvrant toute la saison 2026-27 en un seul appel
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=20260801-20270601&limit=500`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
-  return (json.events || []).map(ev => {
+  // ESPN scoreboard — on fait 2 appels : saison passée + à venir
+  const mapEvent = ev => {
     const comp = ev.competitions?.[0];
     const home = comp?.competitors?.find(c => c.homeAway === 'home');
     const away = comp?.competitors?.find(c => c.homeAway === 'away');
@@ -2119,7 +2115,32 @@ async function fetchFixturesESPN(espnSlug) {
       scoreHome: finished ? parseInt(home?.score) : null,
       scoreAway: finished ? parseInt(away?.score) : null,
     };
-  });
+  };
+
+  const seen = new Set();
+  const allEvents = [];
+
+  // Fetch par mois pour éviter le 400
+  const months = [
+    '20260801','20260901','20261001','20261101','20261201',
+    '20270101','20270201','20270301','20270401','20270501'
+  ];
+
+  for (const month of months) {
+    try {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=${month}&limit=100`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      for (const ev of (json.events || [])) {
+        if (seen.has(ev.id)) continue;
+        seen.add(ev.id);
+        allEvents.push(mapEvent(ev));
+      }
+    } catch(e) { continue; }
+    await new Promise(r => setTimeout(r, 80));
+  }
+  return allEvents;
 }
 
 // ── DUELS ──────────────────────────────────────────────────────────
@@ -2383,12 +2404,6 @@ function renderDuels(clubsByLeague, leagues) {
 
 
 // ── CALENDRIER ────────────────────────────────────────────────────
-const LEAGUE_SHORTS = {
-  'Premier League':'PL','Liga':'ESP','Serie A':'SA','Bundesliga':'BL',
-  'Ligue 1':'L1','Championship':'CH','Ligue 2':'L2','League Two':'L4',
-  'Segunda División':'2A','Segunda Division':'2A'
-};
-
 const ESPN_SLUG_MAP_CAL = {
   'Premier League':'eng.1','Liga':'esp.1','Serie A':'ita.1','Bundesliga':'ger.1','Ligue 1':'fra.1',
   'Championship':'eng.2','Ligue 2':'fra.2','League Two':'eng.4','Segunda División':'esp.2','Segunda Division':'esp.2',
