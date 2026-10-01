@@ -2099,7 +2099,6 @@ function renderStandings(standings, id) {
 
 
 async function fetchFixturesESPN(espnSlug) {
-  // ESPN scoreboard — on fait 2 appels : saison passée + à venir
   const mapEvent = ev => {
     const comp = ev.competitions?.[0];
     const home = comp?.competitors?.find(c => c.homeAway === 'home');
@@ -2120,15 +2119,27 @@ async function fetchFixturesESPN(espnSlug) {
   const seen = new Set();
   const allEvents = [];
 
-  // Fetch par mois pour éviter le 400
-  const months = [
-    '20260801','20260901','20261001','20261101','20261201',
-    '20270101','20270201','20270301','20270401','20270501'
-  ];
+  // Génère des plages de 14 jours pour couvrir toute la saison 2026-27
+  function genRanges(startYMD, endYMD) {
+    const ranges = [];
+    let cur = new Date(startYMD.slice(0,4)+'-'+startYMD.slice(4,6)+'-'+startYMD.slice(6,8));
+    const end = new Date(endYMD.slice(0,4)+'-'+endYMD.slice(4,6)+'-'+endYMD.slice(6,8));
+    while (cur <= end) {
+      const from = cur.toISOString().slice(0,10).replace(/-/g,'');
+      cur.setDate(cur.getDate() + 13);
+      const to = cur > end ? end : new Date(cur);
+      const toStr = to.toISOString().slice(0,10).replace(/-/g,'');
+      ranges.push(from + '-' + toStr);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return ranges;
+  }
 
-  for (const month of months) {
+  const ranges = genRanges('20260801', '20270601');
+
+  for (const range of ranges) {
     try {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=${month}&limit=100`;
+      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=${range}&limit=100`;
       const res = await fetch(url);
       if (!res.ok) continue;
       const json = await res.json();
@@ -2138,7 +2149,7 @@ async function fetchFixturesESPN(espnSlug) {
         allEvents.push(mapEvent(ev));
       }
     } catch(e) { continue; }
-    await new Promise(r => setTimeout(r, 80));
+    await new Promise(r => setTimeout(r, 50));
   }
   return allEvents;
 }
