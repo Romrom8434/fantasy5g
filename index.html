@@ -2119,38 +2119,49 @@ async function fetchFixturesESPN(espnSlug) {
   const seen = new Set();
   const allEvents = [];
 
-  // Génère des plages de 14 jours pour couvrir toute la saison 2026-27
-  function genRanges(startYMD, endYMD) {
-    const ranges = [];
-    let cur = new Date(startYMD.slice(0,4)+'-'+startYMD.slice(4,6)+'-'+startYMD.slice(6,8));
-    const end = new Date(endYMD.slice(0,4)+'-'+endYMD.slice(4,6)+'-'+endYMD.slice(6,8));
-    while (cur <= end) {
-      const from = cur.toISOString().slice(0,10).replace(/-/g,'');
-      cur.setDate(cur.getDate() + 13);
-      const to = cur > end ? end : new Date(cur);
-      const toStr = to.toISOString().slice(0,10).replace(/-/g,'');
-      ranges.push(from + '-' + toStr);
-      cur.setDate(cur.getDate() + 1);
-    }
-    return ranges;
-  }
+  // ESPN: on essaie d'abord le calendrier complet de la saison
+  // puis on retombe sur des appels par journée si ça échoue
+  const tryUrls = [
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?limit=500&seasontype=2&season=2027`,
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?limit=500&seasontype=2`,
+    `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?limit=500`,
+  ];
 
-  const ranges = genRanges('20260801', '20270601');
-
-  for (const range of ranges) {
+  for (const url of tryUrls) {
     try {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=${range}&limit=100`;
       const res = await fetch(url);
       if (!res.ok) continue;
       const json = await res.json();
-      for (const ev of (json.events || [])) {
+      const evs = json.events || [];
+      if (evs.length === 0) continue;
+      for (const ev of evs) {
         if (seen.has(ev.id)) continue;
         seen.add(ev.id);
         allEvents.push(mapEvent(ev));
       }
+      if (allEvents.length > 0) break; // got data, stop trying
     } catch(e) { continue; }
-    await new Promise(r => setTimeout(r, 50));
   }
+
+  // Si on a moins de 5 matchs, tenter mois par mois en fallback
+  if (allEvents.length < 5) {
+    const months = ['202608','202609','202610','202611','202612','202701','202702','202703','202704','202705','202706'];
+    for (const ym of months) {
+      try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/scoreboard?dates=${ym}&limit=200`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const json = await res.json();
+        for (const ev of (json.events || [])) {
+          if (seen.has(ev.id)) continue;
+          seen.add(ev.id);
+          allEvents.push(mapEvent(ev));
+        }
+      } catch(e) { continue; }
+      await new Promise(r => setTimeout(r, 60));
+    }
+  }
+
   return allEvents;
 }
 
