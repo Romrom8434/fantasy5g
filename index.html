@@ -2546,7 +2546,8 @@ function renderCalendrier(allClubs) {
     events.forEach(ev => {
       const league = ev.fantasyClub.league;
       const color = LEAGUE_COLORS[league] || '#888';
-      const short = LEAGUE_SHORTS[league] || league.slice(0,2).toUpperCase();
+      const _SH={'Premier League':'PL','Liga':'ESP','Serie A':'SA','Bundesliga':'BL','Ligue 1':'L1','Championship':'CH','Ligue 2':'L2','League Two':'L4','League two':'L4','Segunda División':'2A','Segunda Division':'2A'};
+      const short = _SH[league] || league.slice(0,2).toUpperCase();
       const timeStr = ev.date ? ev.date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '—';
       const scoreOrTime = ev.status === 'FINISHED' && ev.scoreHome !== null
         ? `${ev.scoreHome} – ${ev.scoreAway}` : timeStr;
